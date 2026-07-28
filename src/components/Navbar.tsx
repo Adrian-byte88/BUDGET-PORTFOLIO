@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Moon, Bell, Shield, LogOut, User, Menu, X, Wifi, Settings } from 'lucide-react';
 import { MarketAlert, AssetPosition, ExpenseEntry, FamilyGoal, BudgetLimit } from '../types';
 import SearchEngine from './SearchEngine';
+import logoImg from '../assets/images/budget_portfolio_logo_1784635990294.jpg';
 
 interface NavbarProps {
   email: string;
@@ -56,7 +57,7 @@ export default function Navbar({
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
         <div className="flex items-center space-x-3.5">
-          <img src="/src/assets/images/budget_portfolio_logo_1784635990294.jpg" alt="Logo" className="w-9 h-9 rounded-lg shadow-md" />
+          <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg shadow-md" />
           <div>
             <h1 className="font-bold text-lg text-slate-900 dark:text-white tracking-tight uppercase">
               BUDGET PORTFOLIO

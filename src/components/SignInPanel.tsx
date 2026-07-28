@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { Shield, AlertCircle } from 'lucide-react';
+import logoImg from '../assets/images/budget_portfolio_logo_1784635990294.jpg';
 
 interface SignInPanelProps {
   onSignIn: () => void;
@@ -49,7 +50,7 @@ export default function SignInPanel({ onSignIn }: SignInPanelProps) {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
       <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 dark:border-slate-800">
         <div className="flex flex-col items-center mb-8">
-          <img src="/src/assets/images/budget_portfolio_logo_1784635990294.jpg" alt="Logo" className="w-16 h-16 rounded-xl mb-4 shadow-lg" />
+          <img src={logoImg} alt="Logo" className="w-16 h-16 rounded-xl mb-4 shadow-lg" />
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white uppercase tracking-tight">Budget Portfolio</h2>
         </div>
 
