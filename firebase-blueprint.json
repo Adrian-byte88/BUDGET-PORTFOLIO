@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "FinancialData": {
+      "title": "Financial Data",
+      "description": "User's financial data including assets, expenses, goals, budgets.",
+      "type": "object",
+      "properties": {
+        "assets": { "type": "array", "description": "List of assets" },
+        "expenses": { "type": "array", "description": "List of expenses" },
+        "goals": { "type": "array", "description": "List of goals" },
+        "budgets": { "type": "array", "description": "List of budgets" },
+        "targetAllocation": { "type": "number", "description": "Target allocation" }
+      },
+      "required": ["assets", "expenses", "goals", "budgets", "targetAllocation"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/financialData/{dataId}": {
+      "schema": "FinancialData",
+      "description": "User-specific financial data."
+    }
+  }
+}

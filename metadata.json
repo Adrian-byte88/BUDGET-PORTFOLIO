@@ -1,0 +1,6 @@
+{
+  "name": "Budget Portfolio",
+  "description": "An institutional-grade full-stack wealth and financial tracking cockpit, featuring automated real-time price synchronization via Gemini Search Grounding, dual multi-currency ledgers, collaborative family budget planning, and secure cloud state synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
