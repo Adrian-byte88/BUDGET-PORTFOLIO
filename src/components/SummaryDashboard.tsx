@@ -127,6 +127,15 @@ export default function SummaryDashboard({
   const prevMonthObj = monthlySpendData.length > 1 ? monthlySpendData[monthlySpendData.length - 2] : null;
   const momChangePercent = prevMonthObj && prevMonthObj.Total > 0 ? ((lastMonthObj.Total - prevMonthObj.Total) / prevMonthObj.Total) * 100 : 0;
 
+  // Dynamic Cumulative Cash Burn Rate Calculation
+  const savedLivingExpenses = typeof window !== 'undefined' ? localStorage.getItem('monthly_living_expenses') : null;
+  const baseLivingExpenses = savedLivingExpenses && !isNaN(Number(savedLivingExpenses)) && Number(savedLivingExpenses) > 0 
+    ? Number(savedLivingExpenses) 
+    : 9000;
+  
+  const effectiveMonthlyBurn = avgMonthlySpend > 0 ? avgMonthlySpend : baseLivingExpenses;
+  const cashBurnRunwayMonths = effectiveMonthlyBurn > 0 ? totalSafe / effectiveMonthlyBurn : 0;
+
   // Generates aggregated spending bar data
   const spendingByCategory = budgets.map((b) => ({
     category: b.category,
@@ -195,8 +204,12 @@ export default function SummaryDashboard({
 
         <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5 shadow-xs group">
           <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">Cumulative Cash Burn Rate</p>
-          <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">26.2 Months</h3>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2.5">Coverage of baseline living costs</p>
+          <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            {cashBurnRunwayMonths.toFixed(1)} Months
+          </h3>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2.5">
+            Coverage @ ₱{Math.round(effectiveMonthlyBurn).toLocaleString()}/mo baseline
+          </p>
         </div>
 
         {/* High visual priority budget safety shield alerts */}
