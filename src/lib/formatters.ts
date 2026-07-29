@@ -51,3 +51,118 @@ export function formatTimeAgo(isoOrTimestamp?: string, lastTriggeredDate?: strin
   const d = new Date(dateMs);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
+
+import { AssetPosition } from '../types';
+
+export interface AssetValuationResult {
+  totalValue: number;
+  principal: number;
+  interestEarned: number; // Net interest after withholding tax
+  grossInterestEarned: number;
+  taxWithheld: number;
+  withholdingTaxPercent: number;
+  daysElapsed: number;
+  totalTermDays: number;
+  expectedMaturityValue: number;
+  isYieldBased: boolean;
+}
+
+export function getAssetValuation(asset: AssetPosition): AssetValuationResult {
+  const baseMarketVal = asset.units * asset.currentPricePHP;
+  const principal = asset.costBasisPHP > 0 ? asset.costBasisPHP : baseMarketVal;
+  const withholdingTaxRate = (asset.withholdingTaxPercent && asset.withholdingTaxPercent > 0) ? asset.withholdingTaxPercent : 0;
+
+  if (asset.yieldPercent && asset.yieldPercent > 0 && principal > 0) {
+    const now = new Date();
+    const startDate = asset.startDate ? new Date(asset.startDate) : null;
+    const maturityDate = asset.maturityDate ? new Date(asset.maturityDate) : null;
+
+    let annualRate = asset.yieldPercent;
+    if (asset.yieldFrequency === 'monthly') annualRate = asset.yieldPercent * 12;
+    else if (asset.yieldFrequency === 'semi-annual') annualRate = asset.yieldPercent * 2;
+    else if (asset.yieldFrequency === 'quarterly') annualRate = asset.yieldPercent * 4;
+
+    if (startDate || maturityDate) {
+      // Start date fallback: if not provided, assume 1 year prior or start of term if maturity is set
+      const start = startDate ? startDate : (maturityDate ? new Date(maturityDate.getTime() - 365 * 24 * 60 * 60 * 1000) : now);
+      
+      // Effective calculation end date capped at maturity date if today > maturity
+      let calcEnd = now;
+      if (maturityDate && now > maturityDate) {
+        calcEnd = maturityDate;
+      }
+
+      const diffMs = Math.max(0, calcEnd.getTime() - start.getTime());
+      const daysElapsed = Math.max(0, diffMs / (1000 * 60 * 60 * 24));
+
+      // Simple Interest accrued gross: Principal * (annualRate / 100) * (daysElapsed / 365)
+      const grossInterestEarned = principal * (annualRate / 100) * (daysElapsed / 365);
+      const taxWithheld = grossInterestEarned * (withholdingTaxRate / 100);
+      const netInterestEarned = grossInterestEarned - taxWithheld;
+      const totalValue = principal + netInterestEarned;
+
+      let grossExpectedMaturityVal = grossInterestEarned;
+      let totalTermDays = Math.max(1, Math.round(daysElapsed));
+
+      if (startDate && maturityDate) {
+        totalTermDays = Math.max(1, Math.round((maturityDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+        grossExpectedMaturityVal = principal * (annualRate / 100) * (totalTermDays / 365);
+      } else if (maturityDate) {
+        totalTermDays = 365;
+        grossExpectedMaturityVal = principal * (annualRate / 100);
+      }
+
+      const taxWithheldAtMaturity = grossExpectedMaturityVal * (withholdingTaxRate / 100);
+      const expectedMaturityValue = principal + (grossExpectedMaturityVal - taxWithheldAtMaturity);
+
+      return {
+        totalValue,
+        principal,
+        interestEarned: netInterestEarned,
+        grossInterestEarned,
+        taxWithheld,
+        withholdingTaxPercent: withholdingTaxRate,
+        daysElapsed: Math.round(daysElapsed),
+        totalTermDays,
+        expectedMaturityValue,
+        isYieldBased: true,
+      };
+    } else {
+      // No dates provided, compute 1-year annual yield accrued or base annual yield
+      const grossInterestEarned = principal * (annualRate / 100);
+      const taxWithheld = grossInterestEarned * (withholdingTaxRate / 100);
+      const netInterestEarned = grossInterestEarned - taxWithheld;
+      const totalValue = principal + netInterestEarned;
+      return {
+        totalValue,
+        principal,
+        interestEarned: netInterestEarned,
+        grossInterestEarned,
+        taxWithheld,
+        withholdingTaxPercent: withholdingTaxRate,
+        daysElapsed: 365,
+        totalTermDays: 365,
+        expectedMaturityValue: totalValue,
+        isYieldBased: true,
+      };
+    }
+  }
+
+  // Standard market-price or unit-price valuation
+  const totalValue = baseMarketVal > 0 ? baseMarketVal : asset.costBasisPHP;
+  const profitLoss = totalValue - asset.costBasisPHP;
+
+  return {
+    totalValue,
+    principal: asset.costBasisPHP,
+    interestEarned: profitLoss,
+    grossInterestEarned: profitLoss,
+    taxWithheld: 0,
+    withholdingTaxPercent: 0,
+    daysElapsed: 0,
+    totalTermDays: 0,
+    expectedMaturityValue: totalValue,
+    isYieldBased: false,
+  };
+}
+

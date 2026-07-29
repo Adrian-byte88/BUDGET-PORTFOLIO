@@ -13,6 +13,8 @@ import {
   CartesianGrid
 } from 'recharts';
 import { AssetPosition } from '../types';
+import { getAssetValuation } from '../lib/formatters';
+import SmartCalculatorInput from './SmartCalculatorInput';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -35,7 +37,8 @@ import {
   Calendar,
   Check,
   Edit2,
-  RotateCcw
+  RotateCcw,
+  Sliders
 } from 'lucide-react';
 
 interface HistoricalTx {
@@ -143,9 +146,10 @@ interface MyFinancialPortfolioProps {
   assets: AssetPosition[];
   usdPhpRate: number;
   targetAllocation?: number;
+  onUpdateTargetAllocation?: (target: number) => void;
 }
 
-export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocation = 85 }: MyFinancialPortfolioProps) {
+export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocation = 85, onUpdateTargetAllocation }: MyFinancialPortfolioProps) {
   // --- AI AND LOCAL TOAST STATES ---
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -381,19 +385,19 @@ export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocat
   // 1. DYNAMIC ASSET COMPILATIONS
   // Safe Shield (Savings + TDs + Loans)
   const safeAssets = assets.filter((a) => a.class === 'safe');
-  const totalSafeShield = safeAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalSafeShield = safeAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
 
   // Risk Sleeve (Crypto, Stocks, REITs)
   const riskAssets = assets.filter((a) => a.class === 'risk');
-  const totalRiskSleeve = riskAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalRiskSleeve = riskAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
 
   // Physical Assets (Honda Bike, Macbook Air, etc.)
   const physicalAssets = assets.filter((a) => a.class === 'physical');
-  const totalPhysical = physicalAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalPhysical = physicalAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
 
   // Liabilities (Mortgages, Auto Loans, Personal Loans)
   const liabilityAssets = assets.filter((a) => a.class === 'liability');
-  const totalLiabilities = liabilityAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalLiabilities = liabilityAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
 
   // Total Assets
   const totalAssets = totalSafeShield + totalRiskSleeve + totalPhysical;
@@ -562,6 +566,88 @@ export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocat
             <span className="text-sm font-black font-mono text-rose-600 dark:text-rose-400">
               ₱{institutionalFundingGap.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Target Allocation Adjuster / Calibrator */}
+      <div id="safety-calibrator-section" data-highlight-id="safety-calibrator-section" className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 flex flex-col justify-between shadow-xs">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
+              <Sliders className="w-4 h-4 text-blue-600 dark:text-teal-400" />
+              <span>Safety Threshold & Asset Weights Calibrator</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-6 leading-relaxed">
+              Dynamically calibrate your personal safety margin threshold standard. Target allocations prevent excessive leverage in speculative cryptocurrency or real estate sleeve asset indices.
+            </p>
+          </div>
+
+          <div className="space-y-6 bg-slate-50 dark:bg-slate-950/50 p-5 rounded-xl border border-slate-100 dark:border-white/5">
+            <div>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-3">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Safe Shield protection standard target (%)</span>
+                <div className="w-full sm:w-48 shrink-0">
+                  <SmartCalculatorInput
+                    label=""
+                    value={targetAllocation.toString()}
+                    onChange={(val) => {
+                      const parsedVal = val.replace(/[^0-9.]/g, '');
+                      const num = parseFloat(parsedVal);
+                      if (!isNaN(num) && onUpdateTargetAllocation) {
+                        onUpdateTargetAllocation(Math.min(95, Math.max(50, num)));
+                      }
+                    }}
+                    currencySymbol=""
+                    placeholder="85"
+                  />
+                </div>
+              </div>
+              <input
+                type="range"
+                min="50"
+                max="95"
+                value={targetAllocation}
+                onChange={(e) => onUpdateTargetAllocation && onUpdateTargetAllocation(Number(e.target.value))}
+                className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase">
+              <span>Conservative Minimum (50%)</span>
+              <span>Speculative Maximum (95%)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Visual quick summary of assets weight */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl p-6 flex flex-col justify-between shadow-xs">
+          <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Allocation Weights & Net Worth</h3>
+          <div className="space-y-3.5 my-4">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Total Liquid Safe Shield:</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">₱{totalSafeShield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Total Risk Sleeve Growth:</span>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400">₱{totalRiskSleeve.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Total Physical Assets:</span>
+              <span className="font-bold text-purple-600 dark:text-purple-400">₱{totalPhysical.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Total Liabilities / Debt:</span>
+              <span className="font-bold text-rose-600 dark:text-rose-400">₱{totalLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="border-t border-slate-100 dark:border-white/5 pt-2 flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-bold">Comprehensive Portfolio Size:</span>
+              <span className="font-bold text-slate-900 dark:text-white">₱{totalAssets.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-bold">Calculated Net Worth:</span>
+              <span className="font-bold text-blue-600 dark:text-blue-400">₱{netWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
           </div>
         </div>
       </div>

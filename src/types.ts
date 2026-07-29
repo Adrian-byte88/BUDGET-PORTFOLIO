@@ -31,6 +31,11 @@ export interface AssetPosition {
   costBasisPHP: number;
   currentPricePHP: number;
   change24h?: number; // percentage fluctuation
+  startDate?: string; // YYYY-MM-DD starting date
+  maturityDate?: string; // YYYY-MM-DD maturity date
+  yieldPercent?: number; // interest / yield rate percentage
+  yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; // rate period e.g. p.a., per month, per 6 mos, per quarter
+  withholdingTaxPercent?: number; // e.g. 20 for 20% final withholding tax in PH
 }
 
 export interface BudgetLimit {

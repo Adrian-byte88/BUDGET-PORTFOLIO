@@ -17,6 +17,7 @@ import {
 import { AssetPosition, ExpenseEntry, BudgetLimit } from '../types';
 import { AlertTriangle, TrendingUp, Filter, Percent, Calendar, BarChart3, ArrowDownRight, ArrowUpRight, DollarSign, Layers } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
+import { getAssetValuation } from '../lib/formatters';
 
 interface SummaryDashboardProps {
   assets: AssetPosition[];
@@ -43,9 +44,9 @@ export default function SummaryDashboard({
   const [spendViewCategory, setSpendViewCategory] = useState<'all' | 'Grocery' | 'Utilities' | 'Travel' | 'Dining' | 'Shopping' | 'Other'>('all');
 
   // Calculates financial aggregates
-  const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
-  const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
-  const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
   const financialNetWorth = totalSafe + totalRisk;
   const grandTotalNetWorth = financialNetWorth + totalPhysical;
 

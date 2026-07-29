@@ -21,6 +21,7 @@ import MyFinancialPortfolio from './components/MyFinancialPortfolio';
 import TransactionHistoryTab from './components/TransactionHistoryTab';
 import MarketCycleAuditTab from './components/MarketCycleAuditTab';
 import SettingsModal from './components/SettingsModal';
+import PhilippineClock from './components/PhilippineClock';
 import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check } from 'lucide-react';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 
@@ -31,6 +32,103 @@ const DEFAULT_BUDGETS: BudgetLimit[] = [
   { category: 'Dining', limitPHP: 6000, spentPHP: 0 },
   { category: 'Shopping', limitPHP: 5000, spentPHP: 0 },
   { category: 'Other', limitPHP: 3000, spentPHP: 0 },
+];
+
+const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
+  {
+    key: 'hys',
+    name: 'Maya High-Yield Savings (HYS)',
+    class: 'safe',
+    assetType: 'deposit',
+    platform: 'Maya Bank',
+    units: 1,
+    currentPricePHP: 250000,
+    costBasisPHP: 250000,
+    yieldPercent: 5.25,
+    yieldFrequency: 'annual',
+    withholdingTaxPercent: 20,
+    change24h: 0.05
+  },
+  {
+    key: 'tbills',
+    name: 'Philippine Treasury Bills (T-Bills)',
+    class: 'safe',
+    assetType: 'deposit',
+    platform: 'BDO Trust / Bureau of Treasury',
+    units: 1,
+    currentPricePHP: 150000,
+    costBasisPHP: 150000,
+    yieldPercent: 5.75,
+    yieldFrequency: 'annual',
+    withholdingTaxPercent: 20,
+    change24h: 0.01
+  },
+  {
+    key: 'paxg',
+    name: 'Pax Gold (PAXG) - Physical Bullion',
+    class: 'safe',
+    platform: 'Binance / Secure Vault',
+    units: 1.5,
+    currentPricePHP: 145000,
+    costBasisPHP: 135000,
+    assetType: 'commodity',
+    change24h: 0.85
+  },
+  {
+    key: 'btc',
+    name: 'Bitcoin (BTC) Treasury Reserve',
+    class: 'risk',
+    platform: 'Cold Storage Vault',
+    units: 0.12,
+    currentPricePHP: 3800000,
+    costBasisPHP: 3200000,
+    assetType: 'crypto',
+    change24h: 2.14
+  },
+  {
+    key: 'scc',
+    name: 'Semirara Mining & Power (SCC)',
+    class: 'risk',
+    platform: 'COL Financial',
+    units: 5000,
+    currentPricePHP: 32.5,
+    costBasisPHP: 30.0,
+    assetType: 'equity',
+    change24h: -0.45
+  },
+  {
+    key: 'rcr',
+    name: 'RL Commercial REIT (RCR)',
+    class: 'risk',
+    platform: 'First Metro Sec',
+    units: 20000,
+    currentPricePHP: 5.40,
+    costBasisPHP: 5.10,
+    assetType: 'equity',
+    change24h: 0.18
+  },
+  {
+    key: 'realestate',
+    name: 'Primary Residential Property',
+    class: 'physical',
+    platform: 'Taguig City',
+    units: 1,
+    currentPricePHP: 4500000,
+    costBasisPHP: 4000000,
+    assetType: 'property',
+    change24h: 0.00
+  },
+  {
+    key: 'mortgage',
+    name: 'Bank Home Mortgage Loan',
+    class: 'liability',
+    platform: 'Metrobank',
+    units: 1,
+    currentPricePHP: 1200000,
+    costBasisPHP: 1200000,
+    assetType: 'liability',
+    change24h: 0.00
+  }
 ];
 
 const DEFAULT_ALERTS: MarketAlert[] = [
@@ -123,35 +221,14 @@ export default function App() {
   }, []);
 
   const email = firebaseUser?.email;
-
   const isAdmin = firebaseUser?.email === 'junnelmrfl@gmail.com';
-  const accessibleTabs = isAdmin 
-    ? (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const)
-    : (['dashboard', 'ledger', 'social'] as const);
 
-  // If active tab is not accessible, reset to a default accessible one
-  useEffect(() => {
-    if (firebaseUser && !accessibleTabs.includes(activeTab as any)) {
-      setActiveTab(accessibleTabs[0]);
-    }
-  }, [isAdmin, activeTab, accessibleTabs, firebaseUser]);
+  const accessibleTabs = (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
   // Restore state from Firestore
   useEffect(() => {
     if (email) {
       isInitialized.current = false;
-      const isAdminAccount = email === 'junnelmrfl@gmail.com';
-
-      // Reset memory state immediately when switching accounts or logging in to prevent cross-contamination
-      if (!isAdminAccount) {
-        setAssets([]);
-        setExpenses([]);
-        setTrades([]);
-        setGoals([]);
-        setBudgets(DEFAULT_BUDGETS);
-        setTargetAllocation(85);
-        setAlerts(DEFAULT_ALERTS);
-      }
 
       // Save user details to Firestore
       setDoc(doc(db, "users", email), {
@@ -159,47 +236,71 @@ export default function App() {
         lastLogin: new Date().toISOString()
       }, { merge: true }).catch(console.error);
 
-      // Load financial data from Firestore
+      // Load financial data from Firestore with local storage fallbacks
       setTimeout(() => {
         getDoc(doc(db, "users", email, "financialData", "data"))
           .then(docSnap => {
+            let loadedAssets: AssetPosition[] | null = null;
+            let loadedExpenses: ExpenseEntry[] | null = null;
+            let loadedGoals: FamilyGoal[] | null = null;
+            let loadedBudgets: BudgetLimit[] | null = null;
+            let loadedTargetAllocation: number | null = null;
+            let loadedAlerts: MarketAlert[] | null = null;
+
             if (docSnap.exists()) {
               const data = docSnap.data();
-              if (isAdminAccount) {
-                if (data.assets) setAssets(data.assets);
-                if (data.expenses) setExpenses(data.expenses);
-                if (data.goals) setGoals(data.goals);
-                if (data.budgets) setBudgets(data.budgets);
-                if (data.targetAllocation) setTargetAllocation(data.targetAllocation);
-                if (data.alerts && data.alerts.length > 0) {
-                  setAlerts(data.alerts.map((a: MarketAlert) => ({
-                    ...a,
-                    lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
-                  })));
+              if (data.assets && Array.isArray(data.assets) && data.assets.length > 0) loadedAssets = data.assets;
+              if (data.expenses) loadedExpenses = data.expenses;
+              if (data.goals) loadedGoals = data.goals;
+              if (data.budgets) loadedBudgets = data.budgets;
+              if (data.targetAllocation) loadedTargetAllocation = data.targetAllocation;
+              if (data.alerts && data.alerts.length > 0) {
+                loadedAlerts = data.alerts.map((a: MarketAlert) => ({
+                  ...a,
+                  lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
+                }));
+              }
+            }
+
+            // Restore assets priority: Firestore -> LocalStorage -> DEFAULT_INITIAL_ASSETS
+            if (loadedAssets && loadedAssets.length > 0) {
+              setAssets(loadedAssets);
+              localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(loadedAssets));
+            } else {
+              const localSavedAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
+              if (localSavedAssets) {
+                try {
+                  const parsed = JSON.parse(localSavedAssets);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    setAssets(parsed);
+                  } else {
+                    setAssets(DEFAULT_INITIAL_ASSETS);
+                  }
+                } catch {
+                  setAssets(DEFAULT_INITIAL_ASSETS);
                 }
               } else {
-                // For standard users, only load their own expenses and budgets; never load admin assets
-                if (data.expenses) setExpenses(data.expenses);
-                if (data.budgets && data.budgets.length > 0) setBudgets(data.budgets);
-                else setBudgets(DEFAULT_BUDGETS);
-                setAssets([]);
-                // Reset user's family goals to zero by default unless connected via invite code
-                const isFamilyConnected = localStorage.getItem(`vault_family_sync_${email}`);
-                if (data.goals && isFamilyConnected) setGoals(data.goals);
-                else setGoals([]);
+                setAssets(DEFAULT_INITIAL_ASSETS);
               }
-              isInitialized.current = true;
-            } else {
-              if (!isAdminAccount) {
-                setBudgets(DEFAULT_BUDGETS);
-                setAssets([]);
-                setGoals([]);
-              }
-              isInitialized.current = true;
             }
+
+            if (loadedExpenses) setExpenses(loadedExpenses);
+            if (loadedGoals) setGoals(loadedGoals);
+            if (loadedBudgets && loadedBudgets.length > 0) setBudgets(loadedBudgets);
+            else setBudgets(DEFAULT_BUDGETS);
+            if (loadedTargetAllocation) setTargetAllocation(loadedTargetAllocation);
+            if (loadedAlerts && loadedAlerts.length > 0) setAlerts(loadedAlerts);
+
+            isInitialized.current = true;
           })
           .catch(err => {
             console.error("Firestore fetch error:", err);
+            const localSavedAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
+            if (localSavedAssets) {
+              try { setAssets(JSON.parse(localSavedAssets)); } catch { setAssets(DEFAULT_INITIAL_ASSETS); }
+            } else {
+              setAssets(DEFAULT_INITIAL_ASSETS);
+            }
             if (err.message && (err.message.includes('offline') || err.message.includes('unavailable'))) {
               triggerToast('Offline', 'Firestore is currently unreachable. Using local data.', 'warning');
             }
@@ -233,9 +334,12 @@ export default function App() {
     }
   }, [toast]);
 
-  // Automated state persistence to Firestore with fast debounce
+  // Automated state persistence to Firestore with fast debounce and LocalStorage backup
   useEffect(() => {
     if (email && isInitialized.current) {
+      if (assets && assets.length > 0) {
+        localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(assets));
+      }
       const handler = setTimeout(() => {
         const dataToSync = { assets, expenses, goals, budgets, targetAllocation, alerts };
         setDoc(doc(db, "users", email, "financialData", "data"), dataToSync)
@@ -598,9 +702,23 @@ export default function App() {
   };
 
   // Custom asset holdings override
-  const handleUpdateAssetHoldings = (key: string, units: number, cost: number) => {
+  const handleUpdateAssetHoldings = (
+    key: string, 
+    units: number, 
+    cost: number, 
+    details?: { startDate?: string; maturityDate?: string; yieldPercent?: number; yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; withholdingTaxPercent?: number }
+  ) => {
     setAssets((prev) =>
-      prev.map((a) => (a.key === key ? { ...a, units, costBasisPHP: cost } : a))
+      prev.map((a) => (a.key === key ? { 
+        ...a, 
+        units, 
+        costBasisPHP: cost,
+        ...(details?.startDate !== undefined && { startDate: details.startDate }),
+        ...(details?.maturityDate !== undefined && { maturityDate: details.maturityDate }),
+        ...(details?.yieldPercent !== undefined && { yieldPercent: details.yieldPercent }),
+        ...(details?.yieldFrequency !== undefined && { yieldFrequency: details.yieldFrequency }),
+        ...(details?.withholdingTaxPercent !== undefined && { withholdingTaxPercent: details.withholdingTaxPercent })
+      } : a))
     );
   };
 
@@ -930,6 +1048,7 @@ export default function App() {
             assets={assets}
             usdPhpRate={exchangeRates.USD}
             targetAllocation={targetAllocation}
+            onUpdateTargetAllocation={setTargetAllocation}
           />
         )}
 
@@ -1015,8 +1134,9 @@ export default function App() {
         onShowToast={triggerToast}
       />
 
-      {/* Clean elegant bottom footer */}
-      <footer className="border-t border-slate-200/50 dark:border-white/5 py-6 mt-16 text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+      {/* Clean elegant bottom footer with Philippine live clock */}
+      <footer className="border-t border-slate-200/50 dark:border-white/5 py-8 mt-16 text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest flex flex-col items-center justify-center gap-3">
+        <PhilippineClock />
         <span>© 2026 Wealth Vault Inc. Fully Audited Cryptographic Protection.</span>
       </footer>
 
