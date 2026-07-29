@@ -3,6 +3,7 @@ import { Sun, Moon, Bell, Shield, LogOut, User, Menu, X, Wifi, Settings } from '
 import { MarketAlert, AssetPosition, ExpenseEntry, FamilyGoal, BudgetLimit } from '../types';
 import SearchEngine from './SearchEngine';
 import logoImg from '../assets/images/budget_portfolio_logo_1784635990294.jpg';
+import { formatTimeAgo } from '../lib/formatters';
 
 interface NavbarProps {
   email: string;
@@ -35,6 +36,13 @@ export default function Navbar({
 }: NavbarProps) {
   const [showAlerts, setShowAlerts] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Dynamic relative timestamp live ticker
+  const [, setTimeTicker] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTimeTicker((t) => t + 1), 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Profile picture and display name state
   const [profilePic, setProfilePic] = useState<string | null>(() => {
@@ -136,7 +144,9 @@ export default function Navbar({
                           }`}>
                             {alert.asset}
                           </span>
-                          <span className="text-[9px] text-slate-400 font-mono">{alert.timestamp}</span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {formatTimeAgo(alert.timestamp, alert.lastTriggeredDate)}
+                          </span>
                         </div>
                         <p className="text-xs text-slate-600 dark:text-slate-300 leading-snug">{alert.message}</p>
                         {(alert.thresholdPercentage || alert.lastTriggeredDate) && (

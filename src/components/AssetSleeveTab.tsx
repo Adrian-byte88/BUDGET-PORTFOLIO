@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AssetPosition, TradeEntry, MarketAlert } from '../types';
 import { Sliders, Plus, Play, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, TrendingDown, TrendingUp, Info, Bell, Trash2 } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
+import { formatTimeAgo } from '../lib/formatters';
 
 interface AssetSleeveTabProps {
   assets: AssetPosition[];
@@ -38,6 +39,13 @@ export default function AssetSleeveTab({
   const [syncLoading, setSyncLoading] = useState(false);
   const [customKey, setCustomKey] = useState('');
 
+  // Relative timestamp ticker
+  const [, setTimeTicker] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTimeTicker((t) => t + 1), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto-switch subtabs or open forms when pinpointed by search engine
   useEffect(() => {
     if (!highlightId) return;
@@ -45,7 +53,6 @@ export default function AssetSleeveTab({
     else if (highlightId.id === 'risk-assets-section') setActiveSubTab('risk');
     else if (highlightId.id === 'physical-assets-section') setActiveSubTab('physical');
     else if (highlightId.id === 'trade-entry-section') setShowTradeForm(true);
-    else if (highlightId.id === 'market-alerts-section' || highlightId.id === 'alert-triggers') setShowAlertForm(true);
     else if (highlightId.type === 'Asset') {
       const asset = assets.find(a => a.key === highlightId.id);
       if (asset) {
@@ -53,27 +60,6 @@ export default function AssetSleeveTab({
       }
     }
   }, [highlightId, assets]);
-
-  // Custom Alert Triggers state
-  const [showAlertForm, setShowAlertForm] = useState(false);
-  const [alertAssetKey, setAlertAssetKey] = useState('all');
-  const [alertType, setAlertType] = useState<'down' | 'volatility' | 'up' | 'info'>('down');
-  const [alertThreshold, setAlertThreshold] = useState('5');
-  const [alertMessage, setAlertMessage] = useState('Price drop exceeds 5% threshold');
-
-  const handleAlertSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!onAddAlert) return;
-    const targetAsset = alertAssetKey === 'all' ? 'All / Portfolio Wide' : (assets.find(a => a.key === alertAssetKey)?.name || alertAssetKey);
-    onAddAlert({
-      asset: targetAsset,
-      type: alertType,
-      thresholdPercentage: Number(alertThreshold) || undefined,
-      message: alertMessage,
-    });
-    setShowAlertForm(false);
-    setAlertMessage('Price drop exceeds 5% threshold');
-  };
   
   // Manual Trade Entry Form
   const [showTradeForm, setShowTradeForm] = useState(false);
@@ -502,171 +488,6 @@ export default function AssetSleeveTab({
               })}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* Custom Price-Drop & Volatility Alert Triggers UI Component */}
-      <div id="alert-triggers" className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/10 pb-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
-              <Bell className="w-4 h-4 text-blue-600" />
-              <span>Custom Price-Drop & Volatility Alert Triggers</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              Define custom percentage threshold triggers for specific assets or portfolio-wide indices. Receive real-time toast and news feed notifications upon breach.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowAlertForm(!showAlertForm)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-xs shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>{showAlertForm ? 'Close Form' : 'New Trigger Rule'}</span>
-          </button>
-        </div>
-
-        {showAlertForm && (
-          <form onSubmit={handleAlertSubmit} className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 p-5 rounded-xl space-y-4 animate-slide-down">
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Configure Custom Trigger Threshold</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1.5">Target Asset</label>
-                <select
-                  value={alertAssetKey}
-                  onChange={(e) => {
-                    setAlertAssetKey(e.target.value);
-                    const name = e.target.value === 'all' ? 'Portfolio Wide' : (assets.find(a => a.key === e.target.value)?.name || e.target.value);
-                    if (alertType === 'down') setAlertMessage(`${name} price drop exceeds ${alertThreshold}% threshold`);
-                    else if (alertType === 'volatility') setAlertMessage(`${name} volatility spike exceeds ±${alertThreshold}%`);
-                    else setAlertMessage(`${name} price surge exceeds +${alertThreshold}%`);
-                  }}
-                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">🌐 All Assets / Portfolio Wide</option>
-                  {assets.map((a) => (
-                    <option key={a.key} value={a.key}>{a.name} ({a.platform})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1.5">Trigger Condition Type</label>
-                <select
-                  value={alertType}
-                  onChange={(e) => {
-                    const type = e.target.value as any;
-                    setAlertType(type);
-                    const name = alertAssetKey === 'all' ? 'Portfolio Wide' : (assets.find(a => a.key === alertAssetKey)?.name || alertAssetKey);
-                    if (type === 'down') setAlertMessage(`${name} price drop exceeds ${alertThreshold}% threshold`);
-                    else if (type === 'volatility') setAlertMessage(`${name} volatility spike exceeds ±${alertThreshold}%`);
-                    else setAlertMessage(`${name} price surge exceeds +${alertThreshold}%`);
-                  }}
-                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="down">📉 Price Drop (Drawdown)</option>
-                  <option value="volatility">⚡ Volatility Spike (±% Swing)</option>
-                  <option value="up">📈 Price Surge (Breakout)</option>
-                  <option value="info">ℹ️ Informational / Macro</option>
-                </select>
-              </div>
-
-              <div>
-                <SmartCalculatorInput
-                  label="Threshold Percentage (%)"
-                  value={alertThreshold}
-                  onChange={(val) => {
-                    setAlertThreshold(val);
-                    const name = alertAssetKey === 'all' ? 'Portfolio Wide' : (assets.find(a => a.key === alertAssetKey)?.name || alertAssetKey);
-                    if (alertType === 'down') setAlertMessage(`${name} price drop exceeds ${val}% threshold`);
-                    else if (alertType === 'volatility') setAlertMessage(`${name} volatility spike exceeds ±${val}%`);
-                    else setAlertMessage(`${name} price surge exceeds +${val}%`);
-                  }}
-                  currencySymbol=""
-                  placeholder="5"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1.5">Custom Alert Notification Message</label>
-              <input
-                type="text"
-                value={alertMessage}
-                onChange={(e) => setAlertMessage(e.target.value)}
-                required
-                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowAlertForm(false)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold uppercase"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase shadow-xs"
-              >
-                Activate Trigger Rule
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="space-y-3">
-          <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Trigger Rules & News Feeds</h4>
-          {(!alerts || alerts.length === 0) ? (
-            <div className="p-6 bg-slate-50 dark:bg-slate-950/50 rounded-xl text-center text-xs text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-white/10">
-              No active alert rules or news feeds configured. Click "New Trigger Rule" above to add price-drop or volatility triggers.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {alerts.map((alert) => (
-                <div key={alert.id} className="p-4 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 hover:border-slate-300 dark:hover:border-white/20 transition-all">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                        alert.type === 'up'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : alert.type === 'down'
-                          ? 'bg-rose-100 text-rose-800'
-                          : alert.type === 'volatility'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {alert.asset}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">{alert.timestamp}</span>
-                      {alert.thresholdPercentage !== undefined && (
-                        <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
-                          ±{alert.thresholdPercentage}% Trigger
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-700 font-medium leading-relaxed">{alert.message}</p>
-                    {alert.lastTriggeredDate && (
-                      <div className="text-[10px] text-slate-400 font-mono pt-1">
-                        Last Triggered: {new Date(alert.lastTriggeredDate).toLocaleDateString()} {new Date(alert.lastTriggeredDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                      </div>
-                    )}
-                  </div>
-                  {onDeleteAlert && (
-                    <button
-                      onClick={() => onDeleteAlert(alert.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
-                      title="Remove Trigger Rule"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 

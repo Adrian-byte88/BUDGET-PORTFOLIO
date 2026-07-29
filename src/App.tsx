@@ -171,7 +171,12 @@ export default function App() {
                 if (data.goals) setGoals(data.goals);
                 if (data.budgets) setBudgets(data.budgets);
                 if (data.targetAllocation) setTargetAllocation(data.targetAllocation);
-                if (data.alerts && data.alerts.length > 0) setAlerts(data.alerts);
+                if (data.alerts && data.alerts.length > 0) {
+                  setAlerts(data.alerts.map((a: MarketAlert) => ({
+                    ...a,
+                    lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
+                  })));
+                }
               } else {
                 // For standard users, only load their own expenses and budgets; never load admin assets
                 if (data.expenses) setExpenses(data.expenses);
@@ -228,14 +233,14 @@ export default function App() {
     }
   }, [toast]);
 
-  // Automated state persistence to Firestore with 5-second debounce to prevent continuous write quota consumption from price ticks
+  // Automated state persistence to Firestore with fast debounce
   useEffect(() => {
     if (email && isInitialized.current) {
       const handler = setTimeout(() => {
         const dataToSync = { assets, expenses, goals, budgets, targetAllocation, alerts };
         setDoc(doc(db, "users", email, "financialData", "data"), dataToSync)
           .catch(console.error);
-      }, 5000);
+      }, 800);
 
       return () => clearTimeout(handler);
     }
@@ -679,15 +684,51 @@ export default function App() {
 
   // Add Collaborative goals
   const handleAddGoal = (goal: Omit<FamilyGoal, 'id'>) => {
-    setGoals((prev) => [...prev, { ...goal, id: `goal-${Date.now()}-${Math.floor(Math.random() * 1000000)}` }]);
+    const newGoal: FamilyGoal = { ...goal, id: `goal-${Date.now()}-${Math.floor(Math.random() * 1000000)}` };
+    setGoals((prev) => {
+      const nextGoals = [...prev, newGoal];
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets, expenses, goals: nextGoals, budgets, targetAllocation, alerts }, { merge: true }).catch(console.error);
+      }
+      return nextGoals;
+    });
     triggerToast('Family Goal Established', `Successfully published target: "${goal.title}"`, 'success');
+  };
+
+  // Edit Collaborative goal
+  const handleEditGoal = (updatedGoal: FamilyGoal) => {
+    setGoals((prev) => {
+      const nextGoals = prev.map((g) => (g.id === updatedGoal.id ? updatedGoal : g));
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets, expenses, goals: nextGoals, budgets, targetAllocation, alerts }, { merge: true }).catch(console.error);
+      }
+      return nextGoals;
+    });
+    triggerToast('Family Goal Updated', `Successfully updated target: "${updatedGoal.title}"`, 'success');
+  };
+
+  // Delete Collaborative goal
+  const handleDeleteGoal = (id: string) => {
+    const target = goals.find((g) => g.id === id);
+    setGoals((prev) => {
+      const nextGoals = prev.filter((g) => g.id !== id);
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets, expenses, goals: nextGoals, budgets, targetAllocation, alerts }, { merge: true }).catch(console.error);
+      }
+      return nextGoals;
+    });
+    triggerToast('Goal Deleted', `Removed target: "${target?.title || 'Family Goal'}"`, 'warning');
   };
 
   // Capitalize collaborative goal progress
   const handleUpdateGoalContribution = (id: string, amount: number) => {
-    setGoals((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, currentPHP: g.currentPHP + amount } : g))
-    );
+    setGoals((prev) => {
+      const nextGoals = prev.map((g) => (g.id === id ? { ...g, currentPHP: g.currentPHP + amount } : g));
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets, expenses, goals: nextGoals, budgets, targetAllocation, alerts }, { merge: true }).catch(console.error);
+      }
+      return nextGoals;
+    });
     triggerToast('Inflow Consolidated', `Allocated ₱${amount.toLocaleString()} towards shared family goal`, 'success');
   };
 
@@ -928,6 +969,8 @@ export default function App() {
             expenses={expenses}
             totalAssets={assets.filter(a => a.class === 'safe' || a.class === 'risk' || a.class === 'physical').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0)}
             onAddGoal={handleAddGoal}
+            onEditGoal={handleEditGoal}
+            onDeleteGoal={handleDeleteGoal}
             onUpdateGoalContribution={handleUpdateGoalContribution}
             isAdmin={isAdmin}
             userEmail={email || ''}
@@ -935,7 +978,14 @@ export default function App() {
         )}
 
         {activeTab === 'audit' && (
-          <MarketCycleAuditTab assets={assets} usdPhpRate={exchangeRates.USD} />
+          <MarketCycleAuditTab
+            assets={assets}
+            usdPhpRate={exchangeRates.USD}
+            alerts={alerts}
+            onAddAlert={handleAddAlert}
+            onDeleteAlert={handleDeleteAlert}
+            highlightId={highlightId}
+          />
         )}
 
         {activeTab === 'transactions' && (

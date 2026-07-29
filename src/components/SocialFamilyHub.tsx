@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FamilyGoal, ExpenseEntry } from '../types';
-import { Users, Target, Plus, Share2, Copy, AlertCircle, CheckCircle2, UserCheck } from 'lucide-react';
+import { Users, Target, Plus, Share2, Copy, AlertCircle, CheckCircle2, UserCheck, Pencil, Trash2 } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
 
 interface SocialFamilyHubProps {
@@ -8,6 +8,8 @@ interface SocialFamilyHubProps {
   expenses: ExpenseEntry[];
   totalAssets: number;
   onAddGoal: (goal: Omit<FamilyGoal, 'id'>) => void;
+  onEditGoal?: (goal: FamilyGoal) => void;
+  onDeleteGoal?: (id: string) => void;
   onUpdateGoalContribution: (id: string, amount: number) => void;
   highlightId?: { type: string; id: string; tab?: string } | null;
   isAdmin?: boolean;
@@ -19,6 +21,8 @@ export default function SocialFamilyHub({
   expenses,
   totalAssets,
   onAddGoal,
+  onEditGoal,
+  onDeleteGoal,
   onUpdateGoalContribution,
   highlightId,
   isAdmin = false,
@@ -61,6 +65,36 @@ export default function SocialFamilyHub({
   // Goal Contribution form state
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [contributionAmt, setContributionAmt] = useState('5000');
+
+  // Goal Edit state
+  const [editingGoal, setEditingGoal] = useState<FamilyGoal | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editTargetPHP, setEditTargetPHP] = useState('');
+  const [editCurrentPHP, setEditCurrentPHP] = useState('');
+  const [editDeadline, setEditDeadline] = useState('');
+
+  const openEditModal = (goal: FamilyGoal) => {
+    setEditingGoal(goal);
+    setEditTitle(goal.title);
+    setEditTargetPHP(goal.targetPHP.toString());
+    setEditCurrentPHP(goal.currentPHP.toString());
+    setEditDeadline(goal.deadline);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGoal || !editTitle || !editTargetPHP || !onEditGoal) return;
+
+    onEditGoal({
+      id: editingGoal.id,
+      title: editTitle,
+      targetPHP: Number(editTargetPHP) || 0,
+      currentPHP: Number(editCurrentPHP) || 0,
+      deadline: editDeadline,
+    });
+
+    setEditingGoal(null);
+  };
 
   const handleGoalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,12 +141,14 @@ export default function SocialFamilyHub({
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Collaborative target indexes designed for family planning</p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Family Assets</p>
-                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-                  ₱{totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
+              {goals.length > 0 && (
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Goal Capital</p>
+                  <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
+                    ₱{goals.reduce((sum, g) => sum + (g.currentPHP || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              )}
               <button
                 id="add-goal-section"
                 data-highlight-id="add-goal-section"
@@ -205,7 +241,7 @@ export default function SocialFamilyHub({
                       </h4>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold uppercase mt-0.5">Target Deadline: {goal.deadline}</p>
                     </div>
-                    <div className="flex items-center space-x-3.5">
+                    <div className="flex items-center space-x-2.5 shrink-0">
                       <div className="text-right">
                         <span className="text-xs font-bold text-slate-900 dark:text-white block">
                           ₱{goal.currentPHP.toLocaleString()} / ₱{goal.targetPHP.toLocaleString()}
@@ -214,10 +250,28 @@ export default function SocialFamilyHub({
                       </div>
                       <button
                         onClick={() => setSelectedGoalId(goal.id)}
-                        className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase rounded-lg border border-slate-200 dark:border-white/5 shadow-xs"
+                        className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold uppercase rounded-lg border border-slate-200 dark:border-white/5 shadow-xs cursor-pointer"
                       >
                         Add Capital
                       </button>
+                      {onEditGoal && (
+                        <button
+                          onClick={() => openEditModal(goal)}
+                          className="p-1.5 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg border border-slate-200 dark:border-white/5 shadow-xs transition-colors cursor-pointer"
+                          title="Edit Goal"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {onDeleteGoal && (
+                        <button
+                          onClick={() => onDeleteGoal(goal.id)}
+                          className="p-1.5 bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-900/30 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg border border-slate-200 dark:border-white/5 shadow-xs transition-colors cursor-pointer"
+                          title="Delete Goal"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -349,6 +403,74 @@ export default function SocialFamilyHub({
             </button>
           </div>
         </div>
+
+        {/* Edit Goal dialogue modal */}
+        {editingGoal && (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-6 sm:p-8 max-w-md w-full shadow-lg relative animate-fade-in">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2.5 mb-4">
+                <Pencil className="w-5 h-5 text-blue-600 dark:text-teal-400" />
+                <span>Edit Family Goal</span>
+              </h3>
+
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Goal Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <SmartCalculatorInput
+                    label="Target Size (PHP)"
+                    value={editTargetPHP}
+                    onChange={setEditTargetPHP}
+                  />
+                </div>
+
+                <div>
+                  <SmartCalculatorInput
+                    label="Current Saved Amount (PHP)"
+                    value={editCurrentPHP}
+                    onChange={setEditCurrentPHP}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Target Deadline</label>
+                  <input
+                    type="date"
+                    required
+                    value={editDeadline}
+                    onChange={(e) => setEditDeadline(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3.5 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditingGoal(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase cursor-pointer"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Contribution dialogue modal */}
         {selectedGoalId && (

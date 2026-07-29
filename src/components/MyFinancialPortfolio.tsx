@@ -265,6 +265,16 @@ export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocat
 
   // Form states for adding new transaction
   const [isAddingTx, setIsAddingTx] = useState(false);
+  const [monthlyLivingExpensesInput, setMonthlyLivingExpensesInput] = useState<string>(() => {
+    const saved = localStorage.getItem('monthly_living_expenses');
+    return saved || '9000';
+  });
+
+  const monthlyLivingExpenses = Number(monthlyLivingExpensesInput) > 0 ? Number(monthlyLivingExpensesInput) : 9000;
+
+  useEffect(() => {
+    localStorage.setItem('monthly_living_expenses', monthlyLivingExpensesInput);
+  }, [monthlyLivingExpensesInput]);
   const [newDate, setNewDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -433,10 +443,18 @@ export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocat
   const targetStockOfTotal = 1.87; // As in the image (12.5% of the 15% risk sleeve)
   const stockStatus = stockWeightOfTotal > targetStockOfTotal ? 'OVERWEIGHT' : 'UNDERWEIGHT';
 
-  // 3. SALARY DILUTION MATH AUDIT
+  // 3. SALARY DILUTION & EMERGENCY SAFEGUARD MATH AUDIT
   const targetPortfolioSize = targetRisk > 0 ? totalRiskSleeve / (targetRisk / 100) : 0;
   const targetSafeShieldValue = targetPortfolioSize * (targetSafe / 100);
   const institutionalFundingGap = Math.max(0, targetSafeShieldValue - totalSafeShield);
+
+  // Emergency Safeguard Buffer Math (Personal Emergency Fund standpoint)
+  const emergencyBuffer3Months = monthlyLivingExpenses * 3;
+  const emergencyBuffer6Months = monthlyLivingExpenses * 6;
+  const emergencyRunwayMonths = monthlyLivingExpenses > 0 ? totalSafeShield / monthlyLivingExpenses : 0;
+  const emergencyBufferSurplus = totalSafeShield - emergencyBuffer6Months;
+  const isEmergencyBufferFunded = totalSafeShield >= emergencyBuffer6Months;
+  const emergencyCoveragePct = emergencyBuffer6Months > 0 ? (totalSafeShield / emergencyBuffer6Months) * 100 : 0;
 
   // 4. SECTOR ALLOCATION & DIVERSIFICATION DATA
   // Fixed Income / Cash, Commodities (Gold), Real Estate (REITs), Digital Assets, Energy / Utilities
@@ -835,64 +853,144 @@ export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocat
         </div>
       </div>
 
-      {/* 3. SALARY DILUTION MATH AUDIT */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 shadow-xs">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center space-x-2">
-          <Percent className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <span>3. Salary Dilution Math Audit</span>
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-          <div className="space-y-4">
-            <ul className="space-y-3.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-              <li className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-2">
-                <span>Current Risk Sleeve Value</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  ₱{totalRiskSleeve.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </li>
-              <li className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-2">
-                <span>Target Portfolio Size <span className="text-[10px] text-slate-400">(Risk Sleeve ÷ {(targetRisk / 100).toFixed(2)})</span></span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  ₱{targetPortfolioSize.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </li>
-              <li className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-2">
-                <span>Target Safe Shield <span className="text-[10px] text-slate-400">({targetSafe}% of target total)</span></span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  ₱{targetSafeShieldValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </li>
-              <li className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-2">
-                <span>Current Safe Shield Value</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  ₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </li>
-              <li className="flex justify-between items-center text-sm font-extrabold pt-1">
-                <span className="text-rose-600 dark:text-rose-400">🚨 INSTITUTIONAL FUNDING GAP</span>
-                <span className="font-mono text-rose-600 dark:text-rose-400 underline underline-offset-4">
-                  ₱{institutionalFundingGap.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="p-6 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 rounded-xl space-y-4">
-            <h4 className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5" />
-              <span>Surplus Deployment Calculation</span>
-            </h4>
-            <div className="flex items-baseline space-x-1.5">
-              <span className="text-3xl font-black font-mono text-slate-900 dark:text-white">
-                {monthsToCloseGap.toFixed(1)}
-              </span>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Months</span>
+      {/* 3. SALARY DILUTION & EMERGENCY SAFEGUARD MATH AUDIT */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 shadow-xs space-y-8">
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
+                <Percent className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>3. Emergency Safeguard Buffer & Portfolio Rebalancing Audit</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Evaluation of living expense reserves vs. portfolio rebalancing target benchmarks based on live asset entries
+              </p>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              At a net surplus allocation rate of <b>₱{monthlySurplusRate.toLocaleString()}/month</b> from salary balance sheets, it will take precisely <b>{monthsToCloseGap.toFixed(1)} months</b> of consistent 100% defensive allocation to clear the ₱{institutionalFundingGap.toLocaleString(undefined, { maximumFractionDigits: 0 })} gap.
+            
+            {/* Monthly Living Expense Baseline Input */}
+            <div className="flex items-center space-x-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-200 dark:border-white/10 shrink-0">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Monthly Living Expenses:</span>
+              <div className="flex items-center space-x-1">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">₱</span>
+                <input
+                  type="number"
+                  value={monthlyLivingExpensesInput}
+                  onChange={(e) => setMonthlyLivingExpensesInput(e.target.value)}
+                  className="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-xs font-mono font-bold text-slate-900 dark:text-white px-2 py-1 rounded focus:outline-none focus:border-blue-500"
+                  placeholder="9000"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Dual Audit Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
+          {/* A. Personal Emergency Safeguard Buffer (Expense-Based Model) */}
+          <div className="p-6 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 rounded-xl space-y-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Personal Emergency Safeguard Buffer</span>
+                </span>
+                <span className={`px-2 py-0.5 text-[9px] font-extrabold rounded-md ${
+                  isEmergencyBufferFunded 
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300' 
+                    : 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'
+                }`}>
+                  {isEmergencyBufferFunded ? '🛡️ 100% SECURED' : '⚠️ UNDER-FUNDED'}
+                </span>
+              </div>
+
+              <div className="flex items-baseline space-x-2 my-2">
+                <span className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                  {emergencyRunwayMonths.toFixed(1)}
+                </span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Months of Living Expense Runway</span>
+              </div>
+
+              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 mt-4 border-t border-slate-200/60 dark:border-white/5 pt-3">
+                <li className="flex justify-between items-center">
+                  <span>Monthly Expense Baseline</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{monthlyLivingExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span>3-Month Emergency Reserve Target</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{emergencyBuffer3Months.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span>6-Month Safeguard Buffer Target</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{emergencyBuffer6Months.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span>Current Safe Shield Capital</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center border-t border-slate-200/60 dark:border-white/5 pt-2 font-bold">
+                  <span>Safeguard Buffer Net Surplus</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                    +₱{emergencyBufferSurplus.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({emergencyCoveragePct.toFixed(0)}% covered)
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200/60 dark:border-white/5">
+              💡 <b>Personal Finance Logic:</b> Your Emergency Fund is calculated directly on 3 to 6 months of actual living expenses (₱{monthlyLivingExpenses.toLocaleString()}/month × 6 = ₱{emergencyBuffer6Months.toLocaleString()}). With <b>₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2 })}</b> in Safe Shield capital, you have <b>{emergencyRunwayMonths.toFixed(1)} months</b> of complete expense runway, fully protecting your household.
             </p>
           </div>
+
+          {/* B. Institutional Portfolio Asset Ratio Audit */}
+          <div className="p-6 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 rounded-xl space-y-5 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <Activity className="w-4 h-4" />
+                  <span>Portfolio Asset Allocation Audit ({targetSafe}/{100 - targetSafe} Target)</span>
+                </span>
+                <span className="px-2 py-0.5 text-[9px] font-extrabold rounded-md bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
+                  REBALANCING MODEL
+                </span>
+              </div>
+
+              <div className="flex items-baseline space-x-2 my-2">
+                <span className="text-3xl font-black font-mono text-slate-900 dark:text-white">
+                  ₱{institutionalFundingGap.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rebalancing Allocation Gap</span>
+              </div>
+
+              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 mt-4 border-t border-slate-200/60 dark:border-white/5 pt-3">
+                <li className="flex justify-between items-center">
+                  <span>Live Risk Sleeve Value</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{totalRiskSleeve.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span>Implied Total Portfolio Target (Risk ÷ {((100 - targetSafe) / 100).toFixed(2)})</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{targetPortfolioSize.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span>Target Safe Shield ({targetSafe}% of Target Total)</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{targetSafeShieldValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center">
+                  <span>Current Live Safe Shield Capital</span>
+                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+                <li className="flex justify-between items-center border-t border-slate-200/60 dark:border-white/5 pt-2 font-bold text-rose-600 dark:text-rose-400">
+                  <span>Rebalancing Allocation Gap</span>
+                  <span className="font-mono underline underline-offset-4">₱{institutionalFundingGap.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200/60 dark:border-white/5">
+              📊 <b>Rebalancing Ratio vs. Emergency Reserve:</b> The ₱{institutionalFundingGap.toLocaleString(undefined, { maximumFractionDigits: 0 })} gap is purely an <i>asset allocation metric</i> that expands when market prices of risk assets (crypto, stocks) appreciate. It ensures your defensive cash scales with portfolio growth, independent of your personal living expenses.
+            </p>
+          </div>
+
         </div>
       </div>
 
