@@ -35,6 +35,7 @@ export default function ExportEngine({
   const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalLiabilities = assets.filter((a) => a.class === 'liability').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const totalAssets = totalSafe + totalRisk + totalPhysical;
 
   // Cash Flow & Passive Income Calculations
@@ -94,12 +95,13 @@ II. BALANCE SHEET (ASSETS vs LIABILITIES)
     TOTAL ASSET VALUE                           : PHP ${totalAssets.toLocaleString(undefined, { minimumFractionDigits: 2 })}
 
   B. LIABILITIES & OBLIGATIONS (Things that take money out):
+    * Mortgages, Loans & Recategorized Debts   : PHP ${totalLiabilities.toLocaleString(undefined, { minimumFractionDigits: 2 })}
     * Monthly Living & Debt Commitments        : PHP ${effectiveMonthlyOutflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
     ----------------------------------------------------------------
-    TOTAL LIABILITIES                           : PHP ${effectiveMonthlyOutflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    TOTAL LIABILITIES                           : PHP ${(totalLiabilities + effectiveMonthlyOutflow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
 
   ==================================================================
-  NET WORTH STATEMENT (Assets - Liabilities)    : PHP ${(totalAssets - effectiveMonthlyOutflow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+  NET WORTH STATEMENT (Total Assets - Debt Liabilities) : PHP ${(totalAssets - totalLiabilities).toLocaleString(undefined, { minimumFractionDigits: 2 })}
   ==================================================================
 
 III. FINANCIAL FREEDOM & CASH FLOW METRIC

@@ -706,13 +706,23 @@ export default function App() {
     key: string, 
     units: number, 
     cost: number, 
-    details?: { startDate?: string; maturityDate?: string; yieldPercent?: number; yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; withholdingTaxPercent?: number }
+    details?: { 
+      startDate?: string; 
+      maturityDate?: string; 
+      yieldPercent?: number; 
+      yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; 
+      withholdingTaxPercent?: number;
+      assetClass?: 'safe' | 'risk' | 'physical' | 'liability';
+      assetType?: 'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
+    }
   ) => {
     setAssets((prev) =>
       prev.map((a) => (a.key === key ? { 
         ...a, 
         units, 
         costBasisPHP: cost,
+        ...(details?.assetClass !== undefined && { class: details.assetClass }),
+        ...(details?.assetType !== undefined && { assetType: details.assetType }),
         ...(details?.startDate !== undefined && { startDate: details.startDate }),
         ...(details?.maturityDate !== undefined && { maturityDate: details.maturityDate }),
         ...(details?.yieldPercent !== undefined && { yieldPercent: details.yieldPercent }),

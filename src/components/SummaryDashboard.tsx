@@ -47,8 +47,9 @@ export default function SummaryDashboard({
   const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
   const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
   const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalLiability = assets.filter((a) => a.class === 'liability').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
   const financialNetWorth = totalSafe + totalRisk;
-  const grandTotalNetWorth = financialNetWorth + totalPhysical;
+  const grandTotalNetWorth = financialNetWorth + totalPhysical - totalLiability;
 
   const currentSafeRatio = financialNetWorth > 0 ? (totalSafe / financialNetWorth) * 100 : 0;
   const isSafeShieldViolated = currentSafeRatio < targetAllocation;

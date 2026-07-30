@@ -11,7 +11,15 @@ interface AssetSleeveTabProps {
     key: string, 
     units: number, 
     cost: number, 
-    details?: { startDate?: string; maturityDate?: string; yieldPercent?: number; yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; withholdingTaxPercent?: number }
+    details?: { 
+      startDate?: string; 
+      maturityDate?: string; 
+      yieldPercent?: number; 
+      yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; 
+      withholdingTaxPercent?: number;
+      assetClass?: 'safe' | 'risk' | 'physical' | 'liability';
+      assetType?: 'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
+    }
   ) => void;
   onAddTrade: (trade: Omit<TradeEntry, 'id'>) => void;
   targetAllocation: number;
@@ -79,11 +87,26 @@ export default function AssetSleeveTab({
   const [editUnits, setEditUnits] = useState('');
   const [editCost, setEditCost] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [editClass, setEditClass] = useState<'safe' | 'risk' | 'physical' | 'liability'>('safe');
+  const [editAssetType, setEditAssetType] = useState<'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability'>('cash');
   const [editStartDate, setEditStartDate] = useState('');
   const [editMaturityDate, setEditMaturityDate] = useState('');
   const [editYieldPercent, setEditYieldPercent] = useState('');
   const [editYieldFrequency, setEditYieldFrequency] = useState<'annual' | 'monthly' | 'semi-annual' | 'quarterly'>('annual');
   const [editWithholdingTax, setEditWithholdingTax] = useState('');
+
+  const handleQuickTransferClass = (asset: AssetPosition, targetClass: 'safe' | 'risk' | 'physical' | 'liability') => {
+    const targetType = targetClass === 'liability' ? 'liability' : (asset.assetType === 'liability' ? 'property' : asset.assetType);
+    onUpdateAssetHoldings(asset.key, asset.units, asset.costBasisPHP, {
+      startDate: asset.startDate,
+      maturityDate: asset.maturityDate,
+      yieldPercent: asset.yieldPercent,
+      yieldFrequency: asset.yieldFrequency,
+      withholdingTaxPercent: asset.withholdingTaxPercent,
+      assetClass: targetClass,
+      assetType: targetType,
+    });
+  };
 
   // Add Asset Form state
   const [showAssetForm, setShowAssetForm] = useState(false);
@@ -154,6 +177,8 @@ export default function AssetSleeveTab({
       yieldPercent: editYieldPercent !== '' && !isNaN(Number(editYieldPercent)) ? Number(editYieldPercent) : undefined,
       yieldFrequency: editYieldFrequency,
       withholdingTaxPercent: editWithholdingTax !== '' && !isNaN(Number(editWithholdingTax)) ? Number(editWithholdingTax) : undefined,
+      assetClass: editClass,
+      assetType: editAssetType,
     });
     onUpdateAssetPrice(editingAsset.key, Number(editPrice));
     setEditingAsset(null);
@@ -362,6 +387,22 @@ export default function AssetSleeveTab({
           </div>
         </div>
 
+        {activeSubTab === 'physical' && (
+          <div className="bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800/40 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-bold text-amber-950 dark:text-amber-200 uppercase tracking-wider">
+                  Cash-Flow Asset vs. Liability Audit
+                </h4>
+                <p className="text-xs text-amber-900/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+                  Does this physical item put money <i>into</i> your pocket (positive cash flow or yields) or take money <i>out</i> (mortgage payments, taxes, maintenance)? Under cash-flow accounting, items causing net financial drain are <b>Liabilities</b>. You can transfer any item directly to Liabilities below with complete data retention.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div 
           id={activeSubTab === 'safe' ? 'safe-assets-section' : activeSubTab === 'risk' ? 'risk-assets-section' : activeSubTab === 'physical' ? 'physical-assets-section' : 'liability-assets-section'}
           data-highlight-id={activeSubTab === 'safe' ? 'safe-assets-section' : activeSubTab === 'risk' ? 'risk-assets-section' : activeSubTab === 'physical' ? 'physical-assets-section' : 'liability-assets-section'}
@@ -482,22 +523,44 @@ export default function AssetSleeveTab({
                       </div>
                     </td>
                     <td className="p-5 text-right pr-8">
-                      <button
-                        onClick={() => {
-                          setEditingAsset(asset);
-                          setEditUnits(asset.units.toString());
-                          setEditCost(asset.costBasisPHP.toString());
-                          setEditPrice(asset.currentPricePHP.toString());
-                          setEditStartDate(asset.startDate || '');
-                          setEditMaturityDate(asset.maturityDate || '');
-                          setEditYieldPercent(asset.yieldPercent !== undefined && asset.yieldPercent !== null ? asset.yieldPercent.toString() : '');
-                          setEditYieldFrequency(asset.yieldFrequency || 'annual');
-                          setEditWithholdingTax(asset.withholdingTaxPercent !== undefined && asset.withholdingTaxPercent !== null ? asset.withholdingTaxPercent.toString() : '');
-                        }}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider rounded-lg border border-slate-200 dark:border-white/5 transition-all"
-                      >
-                        Adjust
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {asset.class === 'physical' && (
+                          <button
+                            onClick={() => handleQuickTransferClass(asset, 'liability')}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-rose-200 dark:border-rose-800/40 transition-all flex items-center gap-1 shrink-0"
+                            title="Transfer item to Liabilities & Loans (Zero Data Loss)"
+                          >
+                            <span>To Liabilities 💸</span>
+                          </button>
+                        )}
+                        {asset.class === 'liability' && (
+                          <button
+                            onClick={() => handleQuickTransferClass(asset, 'physical')}
+                            className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 text-[10px] font-bold uppercase tracking-wider rounded-lg border border-purple-200 dark:border-purple-800/40 transition-all flex items-center gap-1 shrink-0"
+                            title="Transfer item to Physical Assets"
+                          >
+                            <span>To Physical 🏠</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setEditingAsset(asset);
+                            setEditUnits(asset.units.toString());
+                            setEditCost(asset.costBasisPHP.toString());
+                            setEditPrice(asset.currentPricePHP.toString());
+                            setEditClass(asset.class);
+                            setEditAssetType(asset.assetType);
+                            setEditStartDate(asset.startDate || '');
+                            setEditMaturityDate(asset.maturityDate || '');
+                            setEditYieldPercent(asset.yieldPercent !== undefined && asset.yieldPercent !== null ? asset.yieldPercent.toString() : '');
+                            setEditYieldFrequency(asset.yieldFrequency || 'annual');
+                            setEditWithholdingTax(asset.withholdingTaxPercent !== undefined && asset.withholdingTaxPercent !== null ? asset.withholdingTaxPercent.toString() : '');
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10px] text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider rounded-lg border border-slate-200 dark:border-white/5 transition-all"
+                        >
+                          Adjust
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -516,6 +579,37 @@ export default function AssetSleeveTab({
             </h3>
 
             <form onSubmit={handleEditAssetSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Class Group</label>
+                  <select
+                    value={editClass}
+                    onChange={(e) => setEditClass(e.target.value as any)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none"
+                  >
+                    <option value="safe">🛡️ Safe Shield</option>
+                    <option value="risk">🚀 Risk Sleeve</option>
+                    <option value="physical">🏠 Physical</option>
+                    <option value="liability">💸 Liability / Loan</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Asset Category</label>
+                  <select
+                    value={editAssetType}
+                    onChange={(e) => setEditAssetType(e.target.value as any)}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-2.5 py-2 text-xs focus:outline-none"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="crypto">Crypto</option>
+                    <option value="commodity">Commodity</option>
+                    <option value="equity">Equity</option>
+                    <option value="property">Property</option>
+                    <option value="liability">Liability</option>
+                  </select>
+                </div>
+              </div>
               <div>
                 <SmartCalculatorInput
                   label="Units / Shares volume"
