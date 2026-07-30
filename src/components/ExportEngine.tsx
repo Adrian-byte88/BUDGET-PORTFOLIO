@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
 import { AssetPosition, ExpenseEntry, TradeEntry, FamilyGoal, BudgetLimit } from '../types';
 import { FileDown, Upload, Copy, FileText, CheckCircle2, ShieldCheck, RefreshCw, Sparkles, Download } from 'lucide-react';
 
@@ -26,96 +27,121 @@ export default function ExportEngine({
   onExecuteSyncBackup,
   onExecuteRestoreBackup,
 }: ExportEngineProps) {
-  const [copiedBS, setCopiedBS] = useState(false);
-  const [copiedPMC, setCopiedPMC] = useState(false);
   const [copiedReport, setCopiedReport] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
-  // Calculates financial balances
+  // Calculates financial balances and cash flow metrics
   const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
-  const grandTotalNetWorth = totalSafe + totalRisk + totalPhysical;
+  const totalAssets = totalSafe + totalRisk + totalPhysical;
 
-  const currentSafeRatio = (totalSafe + totalRisk) > 0 ? (totalSafe / (totalSafe + totalRisk)) * 100 : 0;
+  // Cash Flow & Passive Income Calculations
+  const estSafeMonthlyYield = (totalSafe * 0.05) / 12;
+  const estEquitiesMonthlyYield = (totalRisk * 0.04) / 12;
+  const totalMonthlyPassiveIncome = estSafeMonthlyYield + estEquitiesMonthlyYield;
 
-  // Generate portfolio_master_command.md string
-  const pmcMarkdown = `# 🏛️ GLOBAL PORTFOLIO MASTER COMMAND
+  const totalMonthlyExpenses = expenses.reduce((sum, e) => sum + (e.amountPHP || 0), 0);
+  const totalBudgetLimit = budgets.reduce((sum, b) => sum + (b.limitPHP || 0), 0);
+  const effectiveMonthlyOutflow = totalMonthlyExpenses > 0 ? totalMonthlyExpenses : totalBudgetLimit;
 
-**System Account:** ${email}
-**Audit Timestamp:** ${new Date().toISOString().split('T')[0]} | V96.2 Standard
+  const netMonthlyCashFlow = totalMonthlyPassiveIncome - effectiveMonthlyOutflow;
+  const freedomRatio = effectiveMonthlyOutflow > 0 ? (totalMonthlyPassiveIncome / effectiveMonthlyOutflow) * 100 : 0;
 
-## 1. 📊 ASSET CLASS ARCHITECTURE
-* **Safe Shield Total:** ₱${totalSafe.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-* **Risk Sleeve Total:** ₱${totalRisk.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-* **Physical Asset Total:** ₱${totalPhysical.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-* **Comprehensive Net Worth:** ₱${grandTotalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+  const freedomStatus = freedomRatio >= 100
+    ? '🚀 FINANCIALLY FREE (Passive Income covers 100%+ of Monthly Outflows)'
+    : freedomRatio >= 50
+    ? '⚡ FAST TRACK MOMENTUM (Passive Income covers 50%+ of Monthly Outflows)'
+    : '🛡️ ACCUMULATION PHASE (Building Cash-Flowing Asset Base)';
 
-## 2. 🛡️ LIQUIDITY WEIGHTS
-| Class | Valuation | Current weight % | Minimum standard threshold % |
-| --- | --- | --- | --- |
-| **Safe Shield** | ₱${totalSafe.toLocaleString()} | **${currentSafeRatio.toFixed(2)}%** | **85%** |
-| **Risk Sleeve** | ₱${totalRisk.toLocaleString()} | **${(100 - currentSafeRatio).toFixed(2)}%** | **15%** |
-
-## 3. 📝 TRANSACTION HISTORY LOGS
-${trades.length === 0 ? 'No active trade executions logged.' : trades.map(t => `* **${t.date}**: [${t.action}] ${t.units} units of ${t.assetName} @ ₱${(t.pricePHP || 0).toLocaleString()} (Notes: ${t.notes || ''})`).join('\n')}
-`;
-
-  // Generate balance_sheet_v78.md string
-  const bsMarkdown = `# ⚖️ INSTITUTIONAL BALANCE SHEET
-
-**Timestamp:** ${new Date().toUTCString()}
-**Audit standard:** V78 General ledger format
-
-## 🛡️ LIQUID & TIME DEPOSITS
-${assets.filter(a => a.class === 'safe').map(a => `* **${a.name}** [${a.platform}]: ₱${((a.units || 0) * (a.currentPricePHP || 0)).toLocaleString()}`).join('\n')}
-
-## 🚀 SPECULATIVE CRYPTO & EQUITIES
-${assets.filter(a => a.class === 'risk').map(a => `* **${a.name}** [${a.platform}]: ₱${((a.units || 0) * (a.currentPricePHP || 0)).toLocaleString()}`).join('\n')}
-
-## 🏡 FIXED PHYSICAL CONSOLIDATION
-${assets.filter(a => a.class === 'physical').map(a => `* **${a.name}** [${a.platform}]: ₱${((a.units || 0) * (a.currentPricePHP || 0)).toLocaleString()}`).join('\n')}
-`;
-
-  // Generate Printable Executive Financial Summary Report
+  // Generate Cash Flow & Financial Statement Report
   const executiveReport = `====================================================================
-               🏛️ GLOBAL PORTFOLIO EXECUTIVE SUMMARY REPORT
+               🏛️ CASH FLOW & FINANCIAL STATEMENT
 ====================================================================
-Timestamp : ${new Date().toLocaleString()}
-Account   : ${email}
-Security  : TWO-FACTOR CRYPTOGRAPHIC VERIFICATION ESTABLISHED
+Timestamp  : ${new Date().toLocaleString()}
+Account    : ${email}
+Methodology: Cash-Flow Asset & Liability Accounting Format
 ====================================================================
 
-1. COMPREHENSIVE NET WORTH BALANCE SHEET:
+I. INCOME STATEMENT (MONTHLY CASH FLOW)
 --------------------------------------------------------------------
-  * SAFE SHIELD (Liquid Cash & Deposits) : PHP ${totalSafe.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-  * RISK SLEEVE (Volatiles & Equities)   : PHP ${totalRisk.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-  * FIXED PHYSICAL PROPERTY ASSETS       : PHP ${totalPhysical.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-  ------------------------------------------------------------------
-  * COMBINED COMPREHENSIVE NET WORTH      : PHP ${grandTotalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+  A. PASSIVE / INVESTMENT CASH FLOW (Money coming in from Assets):
+    * Safe Digital Cash Yield (Est. 5% p.a.)   : PHP ${estSafeMonthlyYield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+    * Dividend Stocks & REIT Yields            : PHP ${estEquitiesMonthlyYield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+    ----------------------------------------------------------------
+    TOTAL MONTHLY PASSIVE ASSET CASH FLOW      : PHP ${totalMonthlyPassiveIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 
-2. LIQUIDITY WEIGHT RATIOS:
---------------------------------------------------------------------
-  * Safe Shield Weight   : ${currentSafeRatio.toFixed(2)}% (Strategy Target minimum: 85%)
-  * Current Security     : ${currentSafeRatio >= 85 ? 'SECURE: Hold thresholds satisfied' : 'WARNING: Hardening protocol advised'}
+  B. MONTHLY LIVING EXPENSES (Money going out to Liabilities):
+${expenses.length > 0
+  ? expenses.map(e => `    * [${e.category.padEnd(16)}] ${(e.description || '').padEnd(20)} : PHP ${(e.amountPHP || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`).join('\n')
+  : budgets.map(b => `    * [${b.category.padEnd(16)}] Budget Control Limit    : PHP ${(b.limitPHP || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`).join('\n')
+}
+    ----------------------------------------------------------------
+    TOTAL MONTHLY LIVING EXPENSES              : PHP ${effectiveMonthlyOutflow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 
-3. LIVING COST EXPENSE BUDGET CONTROLS:
---------------------------------------------------------------------
-${budgets.map(b => `  * ${b.category.padEnd(20)} : Spent PHP ${(b.spentPHP || 0).toLocaleString().padEnd(10)} / Limit PHP ${(b.limitPHP || 0).toLocaleString()} (${((b.spentPHP / b.limitPHP) * 100).toFixed(1)}% spent)`).join('\n')}
+  ==================================================================
+  NET MONTHLY CASH FLOW (Passive Income - Expenses) : PHP ${netMonthlyCashFlow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+  ==================================================================
 
-4. SHARED FAMILY COLLABORATIVE GOALS:
+II. BALANCE SHEET (ASSETS vs LIABILITIES)
 --------------------------------------------------------------------
-${goals.map(g => `  * [${((g.currentPHP / g.targetPHP) * 15).toFixed(0).padEnd(15, '=')}] ${g.title.padEnd(30)} : PHP ${(g.currentPHP || 0).toLocaleString()} / PHP ${(g.targetPHP || 0).toLocaleString()} (Deadline: ${g.deadline})`).join('\n')}
+  A. ASSETS (Things that put money in your pocket):
+    * Safe Shield (Cash, Digital Bank Yields)   : PHP ${totalSafe.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    * Risk Sleeve (Crypto & Growth Equities)    : PHP ${totalRisk.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    * Real Property & Tangible Gold (PAXG)      : PHP ${totalPhysical.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    ----------------------------------------------------------------
+    TOTAL ASSET VALUE                           : PHP ${totalAssets.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+
+  B. LIABILITIES & OBLIGATIONS (Things that take money out):
+    * Monthly Living & Debt Commitments        : PHP ${effectiveMonthlyOutflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    ----------------------------------------------------------------
+    TOTAL LIABILITIES                           : PHP ${effectiveMonthlyOutflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+
+  ==================================================================
+  NET WORTH STATEMENT (Assets - Liabilities)    : PHP ${(totalAssets - effectiveMonthlyOutflow).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+  ==================================================================
+
+III. FINANCIAL FREEDOM & CASH FLOW METRIC
+--------------------------------------------------------------------
+  * Financial Freedom Ratio (Passive / Exp) : ${freedomRatio.toFixed(1)}%
+  * Status Evaluation                      : ${freedomStatus}
 
 ====================================================================
-                  SECURE VAULT AUDITING END OF REPORT
+            END OF EXECUTIVE FINANCIAL REPORT
 ====================================================================`;
 
   const copyText = (text: string, setCopied: (v: boolean) => void) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+    });
+
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(10);
+    
+    const lines = executiveReport.split('\n');
+    let y = 14;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 12;
+
+    lines.forEach((line) => {
+      if (y > pageHeight - margin) {
+        doc.addPage();
+        y = 14;
+      }
+      doc.text(line, margin, y);
+      y += 4.5;
+    });
+
+    doc.save(`Financial_Statement_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const downloadFile = (filename: string, content: string) => {
@@ -229,78 +255,40 @@ ${goals.map(g => `  * [${((g.currentPHP / g.targetPHP) * 15).toFixed(0).padEnd(1
       </div>
 
       {/* Structured report generator panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Executive Summary print view */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
-                <FileText className="w-4.5 h-4.5 text-blue-600 dark:text-teal-400" />
-                <span>Executive Monthly Summary Report</span>
-              </h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">High-fidelity printable audit documentation</p>
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => copyText(executiveReport, setCopiedReport)}
-                className="p-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-white/10 shadow-xs transition-all"
-                title="Copy report text"
-              >
-                {copiedReport ? <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
-              </button>
-              <button
-                onClick={() => downloadFile(`Executive_Financial_Report_${new Date().toISOString().split('T')[0]}.txt`, executiveReport)}
-                className="p-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-white/10 shadow-xs transition-all"
-                title="Download report file"
-              >
-                <FileDown className="w-4 h-4 text-blue-600 dark:text-teal-400" />
-              </button>
-            </div>
+      <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
+              <FileText className="w-4.5 h-4.5 text-blue-600 dark:text-teal-400" />
+              <span>Executive Monthly Summary Report (Financial Statement)</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Standard Cash Flow Statement: Income vs Expenses, Assets vs Liabilities, and Financial Freedom Ratio.
+            </p>
           </div>
-
-          <pre className="w-full flex-grow bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/5 rounded-lg p-5 text-[10px] sm:text-xs font-mono text-slate-600 dark:text-slate-400 overflow-x-auto custom-scrollbar whitespace-pre leading-relaxed select-text">
-            {executiveReport}
-          </pre>
-        </div>
-
-        {/* Local Markdown files */}
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-6 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3 mb-3">
-              <span className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">portfolio_master_command.md</span>
-              <button
-                onClick={() => copyText(pmcMarkdown, setCopiedPMC)}
-                className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest rounded-lg border border-slate-200 dark:border-white/10 shadow-xs flex items-center space-x-1 transition-all"
-              >
-                {copiedPMC ? <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedPMC ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
-            <textarea
-              readOnly
-              value={pmcMarkdown}
-              className="w-full h-40 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/5 rounded-lg p-3.5 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none resize-none"
-            />
-          </div>
-
-          <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-6 shadow-xs">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3 mb-3">
-              <span className="text-[10px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">balance_sheet_v78.md</span>
-              <button
-                onClick={() => copyText(bsMarkdown, setCopiedBS)}
-                className="px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest rounded-lg border border-slate-200 dark:border-white/10 shadow-xs flex items-center space-x-1 transition-all"
-              >
-                {copiedBS ? <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedBS ? 'Copied' : 'Copy'}</span>
-              </button>
-            </div>
-            <textarea
-              readOnly
-              value={bsMarkdown}
-              className="w-full h-40 bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/5 rounded-lg p-3.5 text-[10px] font-mono text-slate-600 dark:text-slate-400 focus:outline-none resize-none"
-            />
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={() => copyText(executiveReport, setCopiedReport)}
+              className="px-3 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-white/10 shadow-xs transition-all text-xs font-bold uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer"
+              title="Copy report text"
+            >
+              {copiedReport ? <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              <span>{copiedReport ? 'Copied' : 'Copy Statement'}</span>
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-xs transition-all text-xs font-bold uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer"
+              title="Download PDF report file"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>Download PDF</span>
+            </button>
           </div>
         </div>
+
+        <pre className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-white/10 rounded-xl p-5 text-xs font-mono text-slate-700 dark:text-slate-300 overflow-x-auto custom-scrollbar whitespace-pre leading-relaxed select-text min-h-[380px]">
+          {executiveReport}
+        </pre>
       </div>
     </div>
   );
