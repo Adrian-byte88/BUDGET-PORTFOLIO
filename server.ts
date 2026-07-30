@@ -156,7 +156,7 @@ async function startServer() {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.0-flash',
         contents: 'Research Google Search for the requested asset prices now.',
         config: {
           systemInstruction: systemPrompt,
@@ -291,7 +291,7 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: 'Research Google Search and generate the dynamic sections updates based on live 2026 sentiment.',
       config: {
         systemInstruction: systemPrompt,
@@ -464,7 +464,7 @@ cron.schedule('0 0 * * 1,4', async () => {
       promptParts.push(`User: ${message}`);
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-2.0-flash',
         contents: promptParts.join('\n'),
         config: {
           systemInstruction: systemPrompt,

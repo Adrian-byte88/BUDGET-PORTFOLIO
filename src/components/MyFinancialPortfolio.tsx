@@ -251,7 +251,7 @@ export default function MyFinancialPortfolio({
     setCycleItemsState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
       localStorage.setItem('portfolio_cycle_items', JSON.stringify(next));
-      onUpdateCycleItems?.(next);
+      setTimeout(() => onUpdateCycleItems?.(next), 0);
       return next;
     });
   };
@@ -283,7 +283,7 @@ export default function MyFinancialPortfolio({
     setDeploymentItemsState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
       localStorage.setItem('portfolio_deployment_items', JSON.stringify(next));
-      onUpdateDeploymentItems?.(next);
+      setTimeout(() => onUpdateDeploymentItems?.(next), 0);
       return next;
     });
   };
@@ -292,7 +292,7 @@ export default function MyFinancialPortfolio({
     setBudgetCapState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
       localStorage.setItem('portfolio_budget_cap', next);
-      onUpdateBudgetCap?.(next);
+      setTimeout(() => onUpdateBudgetCap?.(next), 0);
       return next;
     });
   };
@@ -324,7 +324,7 @@ export default function MyFinancialPortfolio({
     setDevaluationItemsState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
       localStorage.setItem('portfolio_devaluation_items', JSON.stringify(next));
-      onUpdateDevaluationItems?.(next);
+      setTimeout(() => onUpdateDevaluationItems?.(next), 0);
       return next;
     });
   };
@@ -333,7 +333,7 @@ export default function MyFinancialPortfolio({
     setDevaluationTacticsState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
       localStorage.setItem('portfolio_devaluation_tactics', next);
-      onUpdateDevaluationTactics?.(next);
+      setTimeout(() => onUpdateDevaluationTactics?.(next), 0);
       return next;
     });
   };
@@ -357,7 +357,7 @@ export default function MyFinancialPortfolio({
     setAuditChangesState((prev) => {
       const next = typeof val === 'function' ? val(prev) : val;
       localStorage.setItem('portfolio_audit_changes', JSON.stringify(next));
-      onUpdateAuditChanges?.(next);
+      setTimeout(() => onUpdateAuditChanges?.(next), 0);
       return next;
     });
   };
