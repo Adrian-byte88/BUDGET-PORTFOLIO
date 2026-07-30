@@ -49,7 +49,7 @@ export interface DeploymentPlanItem {
   description: string;
 }
 
-const INITIAL_CYCLE_ITEMS: CycleItem[] = [
+export const INITIAL_CYCLE_ITEMS: CycleItem[] = [
   { id: 'c-1', asset: 'Bitcoin', phase: 'Consolidation', sentiment: 'Neutral', logic: 'BTC trading near $63,900, range-bound between roughly $62,700-$65,400 over the past week after slipping from summer highs near $65k-71k. Maintain long-term accumulation bias; no fresh catalyst either way.' },
   { id: 'c-2', asset: 'PAX Gold', phase: 'Consolidation', sentiment: 'Neutral', logic: 'Spot gold trading around $4,010-4,015/oz, down modestly from the ~$4,043 level in the prior audit but still near record territory. Heavy defensive base asset intact.' },
   { id: 'c-3', asset: 'REITs', phase: 'Markup', sentiment: 'Bullish', logic: 'RCR REIT up roughly 5.8% over the past month on continued dividend demand; office/commercial REIT sentiment remains constructive.' },
@@ -58,12 +58,12 @@ const INITIAL_CYCLE_ITEMS: CycleItem[] = [
   { id: 'c-6', asset: 'Safe Shield', phase: 'Hardening', sentiment: 'Bullish', logic: 'Dec 29 TD remains in matured/pending status; Dec 3 TD continuing to accrue at 6% p.a. HYS compounding at 5% p.a.' }
 ];
 
-const INITIAL_DEVALUATION_ITEMS: DevaluationItem[] = [
+export const INITIAL_DEVALUATION_ITEMS: DevaluationItem[] = [
   { id: 'dv-1', indicator: 'USD/PHP Rate', marketRef: '₱61.62 (up from ₱61.42)', portfolioExposure: '15.00% (Risk Sleeve)', hedgeStatus: 'SECURE (USD-proxy assets hedge PHP volatility)', statusType: 'SECURE' },
   { id: 'dv-2', indicator: 'PH Inflation', marketRef: '6.4% (June 2026, PSA)', portfolioExposure: '85.00% (Safe Shield)', hedgeStatus: 'UNDER-YIELDING (6.4% inflation exceeds bank rates)', statusType: 'UNDER-YIELDING' }
 ];
 
-const INITIAL_AUDIT_CHANGES: AuditChangeItem[] = [
+export const INITIAL_AUDIT_CHANGES: AuditChangeItem[] = [
   { id: 'ac-1', title: 'BTC & PAXG Volatility', description: 'Both positions fell slightly in peso terms as spot USD values softened, even though the PHP weakened slightly against the greenback (₱61.42 → ₱61.62).' },
   { id: 'ac-2', title: 'Equities Trend Divergence', description: 'SCC Energy continued its steady downtrend (now down roughly 15.21% below registered cost bases), while SPC Power (+4.76%) and RCR REIT (+5.45%) extended positive momentum.' },
   { id: 'ac-3', title: 'Inflation Moderation', description: 'Headline Philippine Inflation eased slightly to 6.4% in June 2026, narrowing the real under-yielding yield gap versus safe cash reserves, though structural under-yielding persists.' },
@@ -71,19 +71,31 @@ const INITIAL_AUDIT_CHANGES: AuditChangeItem[] = [
   { id: 'ac-5', title: 'Net Capital Stagnation', description: 'Total Core Portfolio value remains essentially flat versus our last audit (-0.91%), as moderate gold/crypto soft spots were safely hedged by fixed-income deposits and REIT/utility dividends.' }
 ];
 
-const INITIAL_DEPLOYMENT_ITEMS: DeploymentPlanItem[] = [
+export const INITIAL_DEPLOYMENT_ITEMS: DeploymentPlanItem[] = [
   { id: 'dp-1', date: 'Aug 15', asset: 'HYS Savings', amount: '₱10,000.00', status: 'PROCEED', description: 'direct 100% of cash surplus to shrink the gap' },
   { id: 'dp-2', date: 'Aug 30', asset: 'HYS Savings', amount: '₱10,000.00', status: 'PROCEED', description: 'continue building cash reserves toward 85% Shield' },
   { id: 'dp-3', date: 'Risk Assets', asset: 'Various', amount: '₱0.00', status: 'ABORT', description: 'risk sleeve remains overweight' }
 ];
 
-interface MarketCycleAuditTabProps {
+export interface MarketCycleAuditTabProps {
   assets: AssetPosition[];
   usdPhpRate: number;
   alerts?: MarketAlert[];
   onAddAlert?: (alert: Omit<MarketAlert, 'id' | 'timestamp'>) => void;
   onDeleteAlert?: (alertId: string) => void;
   highlightId?: { id: string; type?: string; timestamp: number } | null;
+  cycleItems?: CycleItem[];
+  onUpdateCycleItems?: (items: CycleItem[]) => void;
+  devaluationItems?: DevaluationItem[];
+  onUpdateDevaluationItems?: (items: DevaluationItem[]) => void;
+  devaluationTactics?: string;
+  onUpdateDevaluationTactics?: (tactics: string) => void;
+  auditChanges?: AuditChangeItem[];
+  onUpdateAuditChanges?: (changes: AuditChangeItem[]) => void;
+  deploymentItems?: DeploymentPlanItem[];
+  onUpdateDeploymentItems?: (items: DeploymentPlanItem[]) => void;
+  budgetCap?: string;
+  onUpdateBudgetCap?: (cap: string) => void;
 }
 
 export default function MarketCycleAuditTab({
@@ -93,6 +105,18 @@ export default function MarketCycleAuditTab({
   onAddAlert,
   onDeleteAlert,
   highlightId,
+  cycleItems: propCycleItems,
+  onUpdateCycleItems,
+  devaluationItems: propDevaluationItems,
+  onUpdateDevaluationItems,
+  devaluationTactics: propDevaluationTactics,
+  onUpdateDevaluationTactics,
+  auditChanges: propAuditChanges,
+  onUpdateAuditChanges,
+  deploymentItems: propDeploymentItems,
+  onUpdateDeploymentItems,
+  budgetCap: propBudgetCap,
+  onUpdateBudgetCap,
 }: MarketCycleAuditTabProps) {
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -142,7 +166,8 @@ export default function MarketCycleAuditTab({
   };
 
   // --- CYCLE ITEMS STATE ---
-  const [cycleItems, setCycleItems] = useState<CycleItem[]>(() => {
+  const [cycleItems, setCycleItemsState] = useState<CycleItem[]>(() => {
+    if (propCycleItems && propCycleItems.length > 0) return propCycleItems;
     const saved = localStorage.getItem('portfolio_cycle_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
@@ -150,29 +175,66 @@ export default function MarketCycleAuditTab({
     return INITIAL_CYCLE_ITEMS;
   });
   const [isEditingCycle, setIsEditingCycle] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_cycle_items', JSON.stringify(cycleItems));
-  }, [cycleItems]);
+    if (propCycleItems && propCycleItems.length > 0) {
+      setCycleItemsState(propCycleItems);
+    }
+  }, [propCycleItems]);
+
+  const setCycleItems = (val: CycleItem[] | ((prev: CycleItem[]) => CycleItem[])) => {
+    setCycleItemsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_cycle_items', JSON.stringify(next));
+      onUpdateCycleItems?.(next);
+      return next;
+    });
+  };
 
   // --- DEVALUATION STATE ---
-  const [devaluationItems, setDevaluationItems] = useState<DevaluationItem[]>(() => {
+  const [devaluationItems, setDevaluationItemsState] = useState<DevaluationItem[]>(() => {
+    if (propDevaluationItems && propDevaluationItems.length > 0) return propDevaluationItems;
     const saved = localStorage.getItem('portfolio_devaluation_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_DEVALUATION_ITEMS;
   });
-  const [devaluationTactics, setDevaluationTactics] = useState(() => {
+  const [devaluationTactics, setDevaluationTacticsState] = useState(() => {
+    if (propDevaluationTactics) return propDevaluationTactics;
     return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
   });
   const [isEditingDevaluation, setIsEditingDevaluation] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_devaluation_items', JSON.stringify(devaluationItems));
-    localStorage.setItem('portfolio_devaluation_tactics', devaluationTactics);
-  }, [devaluationItems, devaluationTactics]);
+    if (propDevaluationItems && propDevaluationItems.length > 0) setDevaluationItemsState(propDevaluationItems);
+  }, [propDevaluationItems]);
+
+  useEffect(() => {
+    if (propDevaluationTactics) setDevaluationTacticsState(propDevaluationTactics);
+  }, [propDevaluationTactics]);
+
+  const setDevaluationItems = (val: DevaluationItem[] | ((prev: DevaluationItem[]) => DevaluationItem[])) => {
+    setDevaluationItemsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_devaluation_items', JSON.stringify(next));
+      onUpdateDevaluationItems?.(next);
+      return next;
+    });
+  };
+
+  const setDevaluationTactics = (val: string | ((prev: string) => string)) => {
+    setDevaluationTacticsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_devaluation_tactics', next);
+      onUpdateDevaluationTactics?.(next);
+      return next;
+    });
+  };
 
   // --- AUDIT CHANGES STATE (Maximum 5 items enforced) ---
-  const [auditChanges, setAuditChanges] = useState<AuditChangeItem[]>(() => {
+  const [auditChanges, setAuditChangesState] = useState<AuditChangeItem[]>(() => {
+    if (propAuditChanges && propAuditChanges.length > 0) return propAuditChanges.slice(0, 5);
     const saved = localStorage.getItem('portfolio_audit_changes');
     if (saved) {
       try { 
@@ -183,26 +245,61 @@ export default function MarketCycleAuditTab({
     return INITIAL_AUDIT_CHANGES;
   });
   const [isEditingAudit, setIsEditingAudit] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_audit_changes', JSON.stringify(auditChanges.slice(0, 5)));
-  }, [auditChanges]);
+    if (propAuditChanges && propAuditChanges.length > 0) setAuditChangesState(propAuditChanges.slice(0, 5));
+  }, [propAuditChanges]);
+
+  const setAuditChanges = (val: AuditChangeItem[] | ((prev: AuditChangeItem[]) => AuditChangeItem[])) => {
+    setAuditChangesState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      const sliced = next.slice(0, 5);
+      localStorage.setItem('portfolio_audit_changes', JSON.stringify(sliced));
+      onUpdateAuditChanges?.(sliced);
+      return sliced;
+    });
+  };
 
   // --- DEPLOYMENT PLAN STATE ---
-  const [deploymentItems, setDeploymentItems] = useState<DeploymentPlanItem[]>(() => {
+  const [deploymentItems, setDeploymentItemsState] = useState<DeploymentPlanItem[]>(() => {
+    if (propDeploymentItems && propDeploymentItems.length > 0) return propDeploymentItems;
     const saved = localStorage.getItem('portfolio_deployment_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_DEPLOYMENT_ITEMS;
   });
-  const [budgetCap, setBudgetCap] = useState(() => {
+  const [budgetCap, setBudgetCapState] = useState(() => {
+    if (propBudgetCap) return propBudgetCap;
     return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
   });
   const [isEditingDeployment, setIsEditingDeployment] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_deployment_items', JSON.stringify(deploymentItems));
-    localStorage.setItem('portfolio_budget_cap', budgetCap);
-  }, [deploymentItems, budgetCap]);
+    if (propDeploymentItems && propDeploymentItems.length > 0) setDeploymentItemsState(propDeploymentItems);
+  }, [propDeploymentItems]);
+
+  useEffect(() => {
+    if (propBudgetCap) setBudgetCapState(propBudgetCap);
+  }, [propBudgetCap]);
+
+  const setDeploymentItems = (val: DeploymentPlanItem[] | ((prev: DeploymentPlanItem[]) => DeploymentPlanItem[])) => {
+    setDeploymentItemsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_deployment_items', JSON.stringify(next));
+      onUpdateDeploymentItems?.(next);
+      return next;
+    });
+  };
+
+  const setBudgetCap = (val: string | ((prev: string) => string)) => {
+    setBudgetCapState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_budget_cap', next);
+      onUpdateBudgetCap?.(next);
+      return next;
+    });
+  };
 
   // AI Sentiment Grounded Update
   const handleAISentimentUpdate = async () => {

@@ -148,6 +148,18 @@ interface MyFinancialPortfolioProps {
   usdPhpRate: number;
   targetAllocation?: number;
   onUpdateTargetAllocation?: (target: number) => void;
+  cycleItems?: CycleItem[];
+  onUpdateCycleItems?: (items: CycleItem[]) => void;
+  devaluationItems?: DevaluationItem[];
+  onUpdateDevaluationItems?: (items: DevaluationItem[]) => void;
+  devaluationTactics?: string;
+  onUpdateDevaluationTactics?: (tactics: string) => void;
+  auditChanges?: AuditChangeItem[];
+  onUpdateAuditChanges?: (changes: AuditChangeItem[]) => void;
+  deploymentItems?: DeploymentPlanItem[];
+  onUpdateDeploymentItems?: (items: DeploymentPlanItem[]) => void;
+  budgetCap?: string;
+  onUpdateBudgetCap?: (cap: string) => void;
 }
 
 export default function MyFinancialPortfolio({
@@ -155,6 +167,18 @@ export default function MyFinancialPortfolio({
   usdPhpRate,
   targetAllocation = 85,
   onUpdateTargetAllocation,
+  cycleItems: propCycleItems,
+  onUpdateCycleItems,
+  devaluationItems: propDevaluationItems,
+  onUpdateDevaluationItems,
+  devaluationTactics: propDevaluationTactics,
+  onUpdateDevaluationTactics,
+  auditChanges: propAuditChanges,
+  onUpdateAuditChanges,
+  deploymentItems: propDeploymentItems,
+  onUpdateDeploymentItems,
+  budgetCap: propBudgetCap,
+  onUpdateBudgetCap,
 }: MyFinancialPortfolioProps) {
   // --- AI AND LOCAL TOAST STATES ---
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
@@ -209,7 +233,8 @@ export default function MyFinancialPortfolio({
   }, [txs]);
 
   // --- 4. CYCLE ITEMS STATE ---
-  const [cycleItems, setCycleItems] = useState<CycleItem[]>(() => {
+  const [cycleItems, setCycleItemsState] = useState<CycleItem[]>(() => {
+    if (propCycleItems && propCycleItems.length > 0) return propCycleItems;
     const saved = localStorage.getItem('portfolio_cycle_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
@@ -217,46 +242,105 @@ export default function MyFinancialPortfolio({
     return INITIAL_CYCLE_ITEMS;
   });
   const [isEditingCycle, setIsEditingCycle] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_cycle_items', JSON.stringify(cycleItems));
-  }, [cycleItems]);
+    if (propCycleItems && propCycleItems.length > 0) setCycleItemsState(propCycleItems);
+  }, [propCycleItems]);
+
+  const setCycleItems = (val: CycleItem[] | ((prev: CycleItem[]) => CycleItem[])) => {
+    setCycleItemsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_cycle_items', JSON.stringify(next));
+      onUpdateCycleItems?.(next);
+      return next;
+    });
+  };
 
   // --- 5. DEPLOYMENT PLAN STATE ---
-  const [deploymentItems, setDeploymentItems] = useState<DeploymentPlanItem[]>(() => {
+  const [deploymentItems, setDeploymentItemsState] = useState<DeploymentPlanItem[]>(() => {
+    if (propDeploymentItems && propDeploymentItems.length > 0) return propDeploymentItems;
     const saved = localStorage.getItem('portfolio_deployment_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_DEPLOYMENT_ITEMS;
   });
-  const [budgetCap, setBudgetCap] = useState(() => {
+  const [budgetCap, setBudgetCapState] = useState(() => {
+    if (propBudgetCap) return propBudgetCap;
     return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
   });
   const [isEditingDeployment, setIsEditingDeployment] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_deployment_items', JSON.stringify(deploymentItems));
-    localStorage.setItem('portfolio_budget_cap', budgetCap);
-  }, [deploymentItems, budgetCap]);
+    if (propDeploymentItems && propDeploymentItems.length > 0) setDeploymentItemsState(propDeploymentItems);
+  }, [propDeploymentItems]);
+
+  useEffect(() => {
+    if (propBudgetCap) setBudgetCapState(propBudgetCap);
+  }, [propBudgetCap]);
+
+  const setDeploymentItems = (val: DeploymentPlanItem[] | ((prev: DeploymentPlanItem[]) => DeploymentPlanItem[])) => {
+    setDeploymentItemsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_deployment_items', JSON.stringify(next));
+      onUpdateDeploymentItems?.(next);
+      return next;
+    });
+  };
+
+  const setBudgetCap = (val: string | ((prev: string) => string)) => {
+    setBudgetCapState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_budget_cap', next);
+      onUpdateBudgetCap?.(next);
+      return next;
+    });
+  };
 
   // --- 7. CURRENCY DEVALUATION STATE ---
-  const [devaluationItems, setDevaluationItems] = useState<DevaluationItem[]>(() => {
+  const [devaluationItems, setDevaluationItemsState] = useState<DevaluationItem[]>(() => {
+    if (propDevaluationItems && propDevaluationItems.length > 0) return propDevaluationItems;
     const saved = localStorage.getItem('portfolio_devaluation_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_DEVALUATION_ITEMS;
   });
-  const [devaluationTactics, setDevaluationTactics] = useState(() => {
+  const [devaluationTactics, setDevaluationTacticsState] = useState(() => {
+    if (propDevaluationTactics) return propDevaluationTactics;
     return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
   });
   const [isEditingDevaluation, setIsEditingDevaluation] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_devaluation_items', JSON.stringify(devaluationItems));
-    localStorage.setItem('portfolio_devaluation_tactics', devaluationTactics);
-  }, [devaluationItems, devaluationTactics]);
+    if (propDevaluationItems && propDevaluationItems.length > 0) setDevaluationItemsState(propDevaluationItems);
+  }, [propDevaluationItems]);
+
+  useEffect(() => {
+    if (propDevaluationTactics) setDevaluationTacticsState(propDevaluationTactics);
+  }, [propDevaluationTactics]);
+
+  const setDevaluationItems = (val: DevaluationItem[] | ((prev: DevaluationItem[]) => DevaluationItem[])) => {
+    setDevaluationItemsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_devaluation_items', JSON.stringify(next));
+      onUpdateDevaluationItems?.(next);
+      return next;
+    });
+  };
+
+  const setDevaluationTactics = (val: string | ((prev: string) => string)) => {
+    setDevaluationTacticsState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_devaluation_tactics', next);
+      onUpdateDevaluationTactics?.(next);
+      return next;
+    });
+  };
 
   // --- 9. WHAT CHANGED SINCE LAST AUDIT STATE ---
-  const [auditChanges, setAuditChanges] = useState<AuditChangeItem[]>(() => {
+  const [auditChanges, setAuditChangesState] = useState<AuditChangeItem[]>(() => {
+    if (propAuditChanges && propAuditChanges.length > 0) return propAuditChanges;
     const saved = localStorage.getItem('portfolio_audit_changes');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
@@ -264,9 +348,19 @@ export default function MyFinancialPortfolio({
     return INITIAL_AUDIT_CHANGES;
   });
   const [isEditingAudit, setIsEditingAudit] = useState(false);
+
   useEffect(() => {
-    localStorage.setItem('portfolio_audit_changes', JSON.stringify(auditChanges));
-  }, [auditChanges]);
+    if (propAuditChanges && propAuditChanges.length > 0) setAuditChangesState(propAuditChanges);
+  }, [propAuditChanges]);
+
+  const setAuditChanges = (val: AuditChangeItem[] | ((prev: AuditChangeItem[]) => AuditChangeItem[])) => {
+    setAuditChangesState((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      localStorage.setItem('portfolio_audit_changes', JSON.stringify(next));
+      onUpdateAuditChanges?.(next);
+      return next;
+    });
+  };
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('All');

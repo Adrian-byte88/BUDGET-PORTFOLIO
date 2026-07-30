@@ -19,7 +19,16 @@ import SocialFamilyHub from './components/SocialFamilyHub';
 import ExportEngine from './components/ExportEngine';
 import MyFinancialPortfolio from './components/MyFinancialPortfolio';
 import TransactionHistoryTab from './components/TransactionHistoryTab';
-import MarketCycleAuditTab from './components/MarketCycleAuditTab';
+import MarketCycleAuditTab, {
+  CycleItem,
+  DevaluationItem,
+  AuditChangeItem,
+  DeploymentPlanItem,
+  INITIAL_CYCLE_ITEMS,
+  INITIAL_DEVALUATION_ITEMS,
+  INITIAL_AUDIT_CHANGES,
+  INITIAL_DEPLOYMENT_ITEMS
+} from './components/MarketCycleAuditTab';
 import SettingsModal from './components/SettingsModal';
 import PhilippineClock from './components/PhilippineClock';
 import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check } from 'lucide-react';
@@ -183,6 +192,35 @@ export default function App() {
   const [alerts, setAlerts] = useState<MarketAlert[]>(DEFAULT_ALERTS);
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ 'USD': 56.0 });
   const [targetAllocation, setTargetAllocation] = useState<number>(85);
+
+  // Market Cycle Audit & Devaluation States (Synced to Firestore)
+  const [cycleItems, setCycleItems] = useState<CycleItem[]>(() => {
+    const saved = localStorage.getItem('portfolio_cycle_items');
+    if (saved) { try { return JSON.parse(saved); } catch {} }
+    return INITIAL_CYCLE_ITEMS;
+  });
+  const [devaluationItems, setDevaluationItems] = useState<DevaluationItem[]>(() => {
+    const saved = localStorage.getItem('portfolio_devaluation_items');
+    if (saved) { try { return JSON.parse(saved); } catch {} }
+    return INITIAL_DEVALUATION_ITEMS;
+  });
+  const [devaluationTactics, setDevaluationTactics] = useState<string>(() => {
+    return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
+  });
+  const [auditChanges, setAuditChanges] = useState<AuditChangeItem[]>(() => {
+    const saved = localStorage.getItem('portfolio_audit_changes');
+    if (saved) { try { const p = JSON.parse(saved); if (Array.isArray(p)) return p.slice(0, 5); } catch {} }
+    return INITIAL_AUDIT_CHANGES;
+  });
+  const [deploymentItems, setDeploymentItems] = useState<DeploymentPlanItem[]>(() => {
+    const saved = localStorage.getItem('portfolio_deployment_items');
+    if (saved) { try { return JSON.parse(saved); } catch {} }
+    return INITIAL_DEPLOYMENT_ITEMS;
+  });
+  const [budgetCap, setBudgetCap] = useState<string>(() => {
+    return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
+  });
+
   const isInitialized = React.useRef(false);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'assets' | 'ledger' | 'social' | 'audit' | 'transactions'>('dashboard');
@@ -259,6 +297,31 @@ export default function App() {
                   ...a,
                   lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
                 }));
+              }
+              if (data.cycleItems && Array.isArray(data.cycleItems) && data.cycleItems.length > 0) {
+                setCycleItems(data.cycleItems);
+                localStorage.setItem('portfolio_cycle_items', JSON.stringify(data.cycleItems));
+              }
+              if (data.devaluationItems && Array.isArray(data.devaluationItems) && data.devaluationItems.length > 0) {
+                setDevaluationItems(data.devaluationItems);
+                localStorage.setItem('portfolio_devaluation_items', JSON.stringify(data.devaluationItems));
+              }
+              if (data.devaluationTactics) {
+                setDevaluationTactics(data.devaluationTactics);
+                localStorage.setItem('portfolio_devaluation_tactics', data.devaluationTactics);
+              }
+              if (data.auditChanges && Array.isArray(data.auditChanges) && data.auditChanges.length > 0) {
+                const sliced = data.auditChanges.slice(0, 5);
+                setAuditChanges(sliced);
+                localStorage.setItem('portfolio_audit_changes', JSON.stringify(sliced));
+              }
+              if (data.deploymentItems && Array.isArray(data.deploymentItems) && data.deploymentItems.length > 0) {
+                setDeploymentItems(data.deploymentItems);
+                localStorage.setItem('portfolio_deployment_items', JSON.stringify(data.deploymentItems));
+              }
+              if (data.budgetCap) {
+                setBudgetCap(data.budgetCap);
+                localStorage.setItem('portfolio_budget_cap', data.budgetCap);
               }
             }
 
@@ -341,14 +404,27 @@ export default function App() {
         localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(assets));
       }
       const handler = setTimeout(() => {
-        const dataToSync = { assets, expenses, goals, budgets, targetAllocation, alerts };
+        const dataToSync = {
+          assets,
+          expenses,
+          goals,
+          budgets,
+          targetAllocation,
+          alerts,
+          cycleItems,
+          devaluationItems,
+          devaluationTactics,
+          auditChanges,
+          deploymentItems,
+          budgetCap,
+        };
         setDoc(doc(db, "users", email, "financialData", "data"), dataToSync)
           .catch(console.error);
       }, 800);
 
       return () => clearTimeout(handler);
     }
-  }, [assets, expenses, goals, budgets, targetAllocation, alerts, email]);
+  }, [assets, expenses, goals, budgets, targetAllocation, alerts, cycleItems, devaluationItems, devaluationTactics, auditChanges, deploymentItems, budgetCap, email]);
 
   // Automated budget sync with expense ledger
   useEffect(() => {
@@ -1059,6 +1135,18 @@ export default function App() {
             usdPhpRate={exchangeRates.USD}
             targetAllocation={targetAllocation}
             onUpdateTargetAllocation={setTargetAllocation}
+            cycleItems={cycleItems}
+            onUpdateCycleItems={setCycleItems}
+            devaluationItems={devaluationItems}
+            onUpdateDevaluationItems={setDevaluationItems}
+            devaluationTactics={devaluationTactics}
+            onUpdateDevaluationTactics={setDevaluationTactics}
+            auditChanges={auditChanges}
+            onUpdateAuditChanges={setAuditChanges}
+            deploymentItems={deploymentItems}
+            onUpdateDeploymentItems={setDeploymentItems}
+            budgetCap={budgetCap}
+            onUpdateBudgetCap={setBudgetCap}
           />
         )}
 
@@ -1114,6 +1202,18 @@ export default function App() {
             onAddAlert={handleAddAlert}
             onDeleteAlert={handleDeleteAlert}
             highlightId={highlightId}
+            cycleItems={cycleItems}
+            onUpdateCycleItems={setCycleItems}
+            devaluationItems={devaluationItems}
+            onUpdateDevaluationItems={setDevaluationItems}
+            devaluationTactics={devaluationTactics}
+            onUpdateDevaluationTactics={setDevaluationTactics}
+            auditChanges={auditChanges}
+            onUpdateAuditChanges={setAuditChanges}
+            deploymentItems={deploymentItems}
+            onUpdateDeploymentItems={setDeploymentItems}
+            budgetCap={budgetCap}
+            onUpdateBudgetCap={setBudgetCap}
           />
         )}
 
