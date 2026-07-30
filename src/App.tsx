@@ -32,7 +32,7 @@ import MarketCycleAuditTab, {
 import SettingsModal from './components/SettingsModal';
 import PhilippineClock from './components/PhilippineClock';
 import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check } from 'lucide-react';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 
 const DEFAULT_BUDGETS: BudgetLimit[] = [
   { category: 'Grocery', limitPHP: 15000, spentPHP: 0 },
@@ -222,6 +222,7 @@ export default function App() {
   });
 
   const isInitialized = React.useRef(false);
+  const isRemoteUpdate = React.useRef(false);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'assets' | 'ledger' | 'social' | 'audit' | 'transactions'>('dashboard');
   const [darkMode, setDarkMode] = useState(false);
@@ -263,114 +264,105 @@ export default function App() {
 
   const accessibleTabs = (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
-  // Restore state from Firestore
+  // Real-time state synchronization from Firestore across all devices and previews
   useEffect(() => {
-    if (email) {
-      isInitialized.current = false;
+    if (!email) return;
 
-      // Save user details to Firestore
-      setDoc(doc(db, "users", email), {
-        email: email,
-        lastLogin: new Date().toISOString()
-      }, { merge: true }).catch(console.error);
+    isInitialized.current = false;
 
-      // Load financial data from Firestore with local storage fallbacks
-      setTimeout(() => {
-        getDoc(doc(db, "users", email, "financialData", "data"))
-          .then(docSnap => {
-            let loadedAssets: AssetPosition[] | null = null;
-            let loadedExpenses: ExpenseEntry[] | null = null;
-            let loadedGoals: FamilyGoal[] | null = null;
-            let loadedBudgets: BudgetLimit[] | null = null;
-            let loadedTargetAllocation: number | null = null;
-            let loadedAlerts: MarketAlert[] | null = null;
+    // Save user details to Firestore
+    setDoc(doc(db, "users", email), {
+      email: email,
+      lastLogin: new Date().toISOString()
+    }, { merge: true }).catch(console.error);
 
-            if (docSnap.exists()) {
-              const data = docSnap.data();
-              if (data.assets && Array.isArray(data.assets) && data.assets.length > 0) loadedAssets = data.assets;
-              if (data.expenses) loadedExpenses = data.expenses;
-              if (data.goals) loadedGoals = data.goals;
-              if (data.budgets) loadedBudgets = data.budgets;
-              if (data.targetAllocation) loadedTargetAllocation = data.targetAllocation;
-              if (data.alerts && data.alerts.length > 0) {
-                loadedAlerts = data.alerts.map((a: MarketAlert) => ({
-                  ...a,
-                  lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
-                }));
-              }
-              if (data.cycleItems && Array.isArray(data.cycleItems) && data.cycleItems.length > 0) {
-                setCycleItems(data.cycleItems);
-                localStorage.setItem('portfolio_cycle_items', JSON.stringify(data.cycleItems));
-              }
-              if (data.devaluationItems && Array.isArray(data.devaluationItems) && data.devaluationItems.length > 0) {
-                setDevaluationItems(data.devaluationItems);
-                localStorage.setItem('portfolio_devaluation_items', JSON.stringify(data.devaluationItems));
-              }
-              if (data.devaluationTactics) {
-                setDevaluationTactics(data.devaluationTactics);
-                localStorage.setItem('portfolio_devaluation_tactics', data.devaluationTactics);
-              }
-              if (data.auditChanges && Array.isArray(data.auditChanges) && data.auditChanges.length > 0) {
-                const sliced = data.auditChanges.slice(0, 5);
-                setAuditChanges(sliced);
-                localStorage.setItem('portfolio_audit_changes', JSON.stringify(sliced));
-              }
-              if (data.deploymentItems && Array.isArray(data.deploymentItems) && data.deploymentItems.length > 0) {
-                setDeploymentItems(data.deploymentItems);
-                localStorage.setItem('portfolio_deployment_items', JSON.stringify(data.deploymentItems));
-              }
-              if (data.budgetCap) {
-                setBudgetCap(data.budgetCap);
-                localStorage.setItem('portfolio_budget_cap', data.budgetCap);
-              }
-            }
+    const docRef = doc(db, "users", email, "financialData", "data");
 
-            // Restore assets priority: Firestore -> LocalStorage -> DEFAULT_INITIAL_ASSETS
-            if (loadedAssets && loadedAssets.length > 0) {
-              setAssets(loadedAssets);
-              localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(loadedAssets));
-            } else {
-              const localSavedAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
-              if (localSavedAssets) {
-                try {
-                  const parsed = JSON.parse(localSavedAssets);
-                  if (Array.isArray(parsed) && parsed.length > 0) {
-                    setAssets(parsed);
-                  } else {
-                    setAssets(DEFAULT_INITIAL_ASSETS);
-                  }
-                } catch {
-                  setAssets(DEFAULT_INITIAL_ASSETS);
-                }
-              } else {
-                setAssets(DEFAULT_INITIAL_ASSETS);
-              }
-            }
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        isRemoteUpdate.current = true;
 
-            if (loadedExpenses) setExpenses(loadedExpenses);
-            if (loadedGoals) setGoals(loadedGoals);
-            if (loadedBudgets && loadedBudgets.length > 0) setBudgets(loadedBudgets);
-            else setBudgets(DEFAULT_BUDGETS);
-            if (loadedTargetAllocation) setTargetAllocation(loadedTargetAllocation);
-            if (loadedAlerts && loadedAlerts.length > 0) setAlerts(loadedAlerts);
+        let loadedAssets: AssetPosition[] | null = null;
+        let loadedExpenses: ExpenseEntry[] | null = null;
+        let loadedGoals: FamilyGoal[] | null = null;
+        let loadedBudgets: BudgetLimit[] | null = null;
+        let loadedTargetAllocation: number | null = null;
+        let loadedAlerts: MarketAlert[] | null = null;
 
-            isInitialized.current = true;
-          })
-          .catch(err => {
-            console.error("Firestore fetch error:", err);
-            const localSavedAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
-            if (localSavedAssets) {
-              try { setAssets(JSON.parse(localSavedAssets)); } catch { setAssets(DEFAULT_INITIAL_ASSETS); }
-            } else {
-              setAssets(DEFAULT_INITIAL_ASSETS);
-            }
-            if (err.message && (err.message.includes('offline') || err.message.includes('unavailable'))) {
-              triggerToast('Offline', 'Firestore is currently unreachable. Using local data.', 'warning');
-            }
-            isInitialized.current = true;
-          });
-      }, 500);
-    }
+        if (data.assets && Array.isArray(data.assets) && data.assets.length > 0) loadedAssets = data.assets;
+        if (data.expenses) loadedExpenses = data.expenses;
+        if (data.goals) loadedGoals = data.goals;
+        if (data.budgets) loadedBudgets = data.budgets;
+        if (data.targetAllocation) loadedTargetAllocation = data.targetAllocation;
+        if (data.alerts && data.alerts.length > 0) {
+          loadedAlerts = data.alerts.map((a: MarketAlert) => ({
+            ...a,
+            lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
+          }));
+        }
+
+        if (data.cycleItems && Array.isArray(data.cycleItems) && data.cycleItems.length > 0) {
+          setCycleItems(data.cycleItems);
+          localStorage.setItem('portfolio_cycle_items', JSON.stringify(data.cycleItems));
+        }
+        if (data.devaluationItems && Array.isArray(data.devaluationItems) && data.devaluationItems.length > 0) {
+          setDevaluationItems(data.devaluationItems);
+          localStorage.setItem('portfolio_devaluation_items', JSON.stringify(data.devaluationItems));
+        }
+        if (data.devaluationTactics) {
+          setDevaluationTactics(data.devaluationTactics);
+          localStorage.setItem('portfolio_devaluation_tactics', data.devaluationTactics);
+        }
+        if (data.auditChanges && Array.isArray(data.auditChanges) && data.auditChanges.length > 0) {
+          const sliced = data.auditChanges.slice(0, 5);
+          setAuditChanges(sliced);
+          localStorage.setItem('portfolio_audit_changes', JSON.stringify(sliced));
+        }
+        if (data.deploymentItems && Array.isArray(data.deploymentItems) && data.deploymentItems.length > 0) {
+          setDeploymentItems(data.deploymentItems);
+          localStorage.setItem('portfolio_deployment_items', JSON.stringify(data.deploymentItems));
+        }
+        if (data.budgetCap) {
+          setBudgetCap(data.budgetCap);
+          localStorage.setItem('portfolio_budget_cap', data.budgetCap);
+        }
+
+        if (loadedAssets && loadedAssets.length > 0) {
+          setAssets(loadedAssets);
+          localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(loadedAssets));
+        }
+        if (loadedExpenses) setExpenses(loadedExpenses);
+        if (loadedGoals) setGoals(loadedGoals);
+        if (loadedBudgets && loadedBudgets.length > 0) setBudgets(loadedBudgets);
+        if (loadedTargetAllocation) setTargetAllocation(loadedTargetAllocation);
+        if (loadedAlerts && loadedAlerts.length > 0) setAlerts(loadedAlerts);
+
+        isInitialized.current = true;
+      } else {
+        const localSavedAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
+        if (localSavedAssets) {
+          try {
+            const parsed = JSON.parse(localSavedAssets);
+            if (Array.isArray(parsed) && parsed.length > 0) setAssets(parsed);
+            else setAssets(DEFAULT_INITIAL_ASSETS);
+          } catch {
+            setAssets(DEFAULT_INITIAL_ASSETS);
+          }
+        } else {
+          setAssets(DEFAULT_INITIAL_ASSETS);
+        }
+        isInitialized.current = true;
+      }
+    }, (err) => {
+      console.error("Firestore onSnapshot error:", err);
+      if (err.message && (err.message.includes('offline') || err.message.includes('unavailable'))) {
+        triggerToast('Offline', 'Firestore is currently unreachable. Using local data.', 'warning');
+      }
+      isInitialized.current = true;
+    });
+
+    return () => unsubscribe();
   }, [email]);
 
   const triggerToast = (title: string, desc: string, type: 'success' | 'warning' | 'error' = 'success') => {
@@ -400,6 +392,10 @@ export default function App() {
   // Automated state persistence to Firestore with fast debounce and LocalStorage backup
   useEffect(() => {
     if (email && isInitialized.current) {
+      if (isRemoteUpdate.current) {
+        isRemoteUpdate.current = false;
+        return;
+      }
       if (assets && assets.length > 0) {
         localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(assets));
       }
@@ -417,10 +413,11 @@ export default function App() {
           auditChanges,
           deploymentItems,
           budgetCap,
+          updatedAt: Date.now(),
         };
-        setDoc(doc(db, "users", email, "financialData", "data"), dataToSync)
+        setDoc(doc(db, "users", email, "financialData", "data"), dataToSync, { merge: true })
           .catch(console.error);
-      }, 800);
+      }, 400);
 
       return () => clearTimeout(handler);
     }
