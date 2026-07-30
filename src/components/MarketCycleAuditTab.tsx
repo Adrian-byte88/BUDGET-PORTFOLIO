@@ -207,7 +207,7 @@ export default function MarketCycleAuditTab({
   // AI Sentiment Grounded Update
   const handleAISentimentUpdate = async () => {
     setIsUpdatingAI(true);
-    triggerLocalToast('Initiating Google Search Grounding for Market Cycles & USD Defenses...', 'info');
+    triggerLocalToast('Initiating Google Search Grounding for Market Cycles & Trigger Rules...', 'info');
     try {
       const response = await fetch('/api/portfolio/ai-sentiment', {
         method: 'POST',
@@ -220,7 +220,17 @@ export default function MarketCycleAuditTab({
         if (data.devaluationItems) setDevaluationItems(data.devaluationItems);
         if (data.deploymentItems) setDeploymentItems(data.deploymentItems);
         if (data.auditChanges) setAuditChanges(data.auditChanges.slice(0, 5));
-        triggerLocalToast('✨ Market cycle, devaluation defense & audit updates synced!', 'success');
+        if (data.alerts && Array.isArray(data.alerts) && onAddAlert) {
+          data.alerts.forEach((al: any) => {
+            onAddAlert({
+              asset: al.asset || 'Portfolio Wide',
+              type: al.type || 'volatility',
+              thresholdPercentage: al.thresholdPercentage || 5,
+              message: al.message || 'AI Market Cycle Alert Trigger'
+            });
+          });
+        }
+        triggerLocalToast('✨ Market cycles, devaluation defenses & alert triggers auto-updated!', 'success');
       } else {
         triggerLocalToast(`⚠️ Update failed: ${data.error || 'Unknown error'}`, 'error');
       }

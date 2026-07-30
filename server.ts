@@ -156,7 +156,7 @@ async function startServer() {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-2.5-flash',
         contents: 'Research Google Search for the requested asset prices now.',
         config: {
           systemInstruction: systemPrompt,
@@ -166,7 +166,12 @@ async function startServer() {
 
       const rawText = response.text || '';
       // Sanitize potential markdown block wrapper
-      const jsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      let jsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const firstBrace = jsonText.indexOf('{');
+      const lastBrace = jsonText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+      }
       const parsedData = JSON.parse(jsonText);
 
       // Save parsed data to server cache
@@ -210,6 +215,12 @@ app.post('/api/portfolio/ai-sentiment', async (req: Request, res: Response) => {
 });
 
 async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> {
+  const defaultAlerts = [
+    { id: `al-${Date.now()}-1`, asset: 'Bitcoin (BTC)', type: 'volatility', thresholdPercentage: 5, message: 'BTC 2026 volatility guard active: ±5% price swing threshold.' },
+    { id: `al-${Date.now()}-2`, asset: 'PAX Gold (PAXG)', type: 'up', thresholdPercentage: 3, message: 'PAXG safe-haven surge trigger active at +3% breakout.' },
+    { id: `al-${Date.now()}-3`, asset: 'PHP/USD Spot Rate', type: 'down', thresholdPercentage: 2, message: 'PHP/USD devaluation warning active at -2% drawdown.' }
+  ];
+
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
     // Fallback data
     return {
@@ -235,7 +246,8 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
         { id: 'ac-1', title: 'BSP Rate Stability', description: 'Central bank maintains policy rates, supporting high-yield savings rates of 5% in digital platforms.' },
         { id: 'ac-2', title: 'BTC Resistance Breach', description: 'Bitcoin clears resistance in USD terms, boosting peso valuation despite stable exchange rates.' },
         { id: 'ac-3', title: 'Gold All-Time Highs', description: 'Physical gold spot values hit new record levels, proving highly protective for PDAX PAXG allocations.' },
-      ]
+      ],
+      alerts: defaultAlerts
     };
   }
 
@@ -256,31 +268,30 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
       2. Philippine Inflation (BSP rate, CPI index, PHP/USD rate which is around ₱61.60).
       3. Philippine stock equities: SCC Energy, SPC Power, RCR REIT, Manulife Asia REIT.
 
-      Generate a JSON object containing updated structure values for these four sections. Ensure the values are fully grounded in current news from July 2026.
+      Generate a JSON object containing updated structure values for these sections PLUS custom alert trigger rules based on current market volatility and drawdowns.
       Return ONLY valid JSON matching this schema:
       {
         "cycleItems": [
-          { "id": "cy-1", "asset": "Bitcoin (BTC)", "phase": "string (e.g., Consolidation)", "sentiment": "Bullish" | "Neutral" | "Bearish", "logic": "string" },
-          ...
+          { "id": "cy-1", "asset": "Bitcoin (BTC)", "phase": "string (e.g., Consolidation)", "sentiment": "Bullish" | "Neutral" | "Bearish", "logic": "string" }
         ],
         "devaluationItems": [
-          { "id": "de-1", "indicator": "string (e.g., CPI Inflation)", "marketRef": "string", "portfolioExposure": "string", "hedgeStatus": "string", "statusType": "aligned" | "neutral" | "caution" },
-          ...
+          { "id": "de-1", "indicator": "string (e.g., CPI Inflation)", "marketRef": "string", "portfolioExposure": "string", "hedgeStatus": "string", "statusType": "aligned" | "neutral" | "caution" }
         ],
         "deploymentItems": [
-          { "id": "dp-1", "date": "string (e.g., Aug 15)", "asset": "string", "amount": "string (e.g., ₱10,000.00)", "status": "PROCEED" | "HOLD" | "MONITOR", "description": "string" },
-          ...
+          { "id": "dp-1", "date": "string (e.g., Aug 15)", "asset": "string", "amount": "string (e.g., ₱10,000.00)", "status": "PROCEED" | "HOLD" | "MONITOR", "description": "string" }
         ],
         "auditChanges": [
-          { "id": "ac-1", "title": "string", "description": "string" },
-          ...
+          { "id": "ac-1", "title": "string", "description": "string" }
+        ],
+        "alerts": [
+          { "id": "al-1", "asset": "string (e.g., Bitcoin (BTC))", "type": "down" | "volatility" | "up" | "info", "thresholdPercentage": 5, "message": "string" }
         ]
       }
       Do not enclose in markdown ticks, just raw parseable JSON text.
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: 'Research Google Search and generate the dynamic sections updates based on live 2026 sentiment.',
       config: {
         systemInstruction: systemPrompt,
@@ -289,12 +300,18 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
     });
 
     const rawText = response.text || '';
-    const jsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    let jsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const firstBrace = jsonText.indexOf('{');
+    const lastBrace = jsonText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      jsonText = jsonText.substring(firstBrace, lastBrace + 1);
+    }
     const parsedData = JSON.parse(jsonText);
 
     return {
       success: true,
       source: 'gemini_search_grounding',
+      alerts: defaultAlerts,
       ...parsedData
     };
 
@@ -324,7 +341,8 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
         { id: 'ac-1', title: 'BSP Rate Stability', description: 'Central bank maintains policy rates, supporting high-yield savings rates of 5% in digital platforms.' },
         { id: 'ac-2', title: 'BTC Resistance Breach', description: 'Bitcoin clears resistance in USD terms, boosting peso valuation despite stable exchange rates.' },
         { id: 'ac-3', title: 'Gold All-Time Highs', description: 'Physical gold spot values hit new record levels, proving highly protective for PDAX PAXG allocations.' },
-      ]
+      ],
+      alerts: defaultAlerts
     };
   }
 }

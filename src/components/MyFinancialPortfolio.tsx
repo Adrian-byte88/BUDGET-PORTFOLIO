@@ -12,8 +12,8 @@ import {
   Legend,
   CartesianGrid
 } from 'recharts';
-import { AssetPosition } from '../types';
-import { getAssetValuation } from '../lib/formatters';
+import { AssetPosition, MarketAlert } from '../types';
+import { getAssetValuation, formatTimeAgo } from '../lib/formatters';
 import SmartCalculatorInput from './SmartCalculatorInput';
 import {
   ShieldAlert,
@@ -38,7 +38,8 @@ import {
   Check,
   Edit2,
   RotateCcw,
-  Sliders
+  Sliders,
+  Bell
 } from 'lucide-react';
 
 interface HistoricalTx {
@@ -149,7 +150,12 @@ interface MyFinancialPortfolioProps {
   onUpdateTargetAllocation?: (target: number) => void;
 }
 
-export default function MyFinancialPortfolio({ assets, usdPhpRate, targetAllocation = 85, onUpdateTargetAllocation }: MyFinancialPortfolioProps) {
+export default function MyFinancialPortfolio({
+  assets,
+  usdPhpRate,
+  targetAllocation = 85,
+  onUpdateTargetAllocation,
+}: MyFinancialPortfolioProps) {
   // --- AI AND LOCAL TOAST STATES ---
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
