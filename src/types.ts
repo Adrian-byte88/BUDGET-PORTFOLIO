@@ -25,8 +25,8 @@ export interface AssetPosition {
   key: string;
   name: string;
   platform: string;
-  class: 'safe' | 'risk' | 'physical' | 'liability';
-  assetType: 'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
+  class: 'safe' | 'risk' | 'physical' | 'liability' | 'hys';
+  assetType: 'cash' | 'deposit' | 'hys' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
   units: number;
   costBasisPHP: number;
   currentPricePHP: number;

@@ -512,7 +512,11 @@ export default function MyFinancialPortfolio({
 
   const handleResetTxs = () => {
     if (window.confirm('Are you sure you want to reset to default historical transactions?')) {
-      setTxs(INITIAL_HISTORICAL_TXS);
+      if (onResetTransactions) {
+        onResetTransactions();
+      } else {
+        setLocalTxs(INITIAL_HISTORICAL_TXS);
+      }
     }
   };
 

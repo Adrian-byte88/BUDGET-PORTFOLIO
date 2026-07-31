@@ -23,7 +23,7 @@ const STATIC_INDEX: SearchItem[] = [
   // TABS
   { type: 'Tab', name: 'Summary Dashboard', id: 'dashboard', targetTab: 'dashboard', subtitle: 'Main Overview & KPIs', keywords: 'home dashboard kpis metrics summary net worth' },
   { type: 'Tab', name: 'My Financial Portfolio', id: 'portfolio', targetTab: 'portfolio', subtitle: 'Allocation & Yield Projections', keywords: 'portfolio yield asset allocation breakdown returns' },
-  { type: 'Tab', name: 'Risk & Safe Assets', id: 'assets', targetTab: 'assets', subtitle: 'Asset Sleeve Holdings & Trades', keywords: 'safe risk mp2 tbills crypto stocks market alerts trades sleeve' },
+  { type: 'Tab', name: 'Risk & Safe Assets', id: 'assets', targetTab: 'assets', subtitle: 'Asset Sleeve Holdings & Trades', keywords: 'safe risk maya bank hys tbills crypto stocks market alerts trades sleeve' },
   { type: 'Tab', name: 'Expense Ledger', id: 'ledger', targetTab: 'ledger', subtitle: 'Outflow Logs & Category Limits', keywords: 'expenses spending budget bank sync transactions outflows' },
   { type: 'Tab', name: 'Social Family Sync', id: 'social', targetTab: 'social', subtitle: 'Collaborative Family Goals', keywords: 'family goals savings contributions tuition vacation household' },
   { type: 'Tab', name: 'Cycle Audit', id: 'audit', targetTab: 'audit', subtitle: 'Macroeconomic Cycle Analysis', keywords: 'audit market phase rebalance macro risk cycle recommendation' },
@@ -42,7 +42,7 @@ const STATIC_INDEX: SearchItem[] = [
   { type: 'Section', name: 'Target Allocation Slider & Rebalancing Shield', id: 'portfolio-allocation-section', targetTab: 'portfolio', subtitle: 'Portfolio Section', keywords: 'target allocation risk dial safe shield rebalance strategy slider' },
 
   // SECTIONS - RISK & SAFE ASSETS
-  { type: 'Section', name: 'Safe Asset Sleeve (MP2, TBills, Digital Banks)', id: 'safe-assets-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'pagibig mp2 treasury bills time deposit high yield savings bank safe sleeve' },
+  { type: 'Section', name: 'Safe Asset Sleeve (Maya Bank HYS, TBills, Digital Banks)', id: 'safe-assets-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'maya bank hys high yield savings treasury bills time deposit safe sleeve' },
   { type: 'Section', name: 'Risk Asset Sleeve (Crypto, PSEi, Global Equities)', id: 'risk-assets-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'bitcoin stocks psei s&p500 global equities crypto risk capital equity' },
   { type: 'Section', name: 'Physical Assets & Illiquid Real Estate', id: 'physical-assets-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'condominium lot real estate property gold vehicle physical illiquid' },
   { type: 'Section', name: 'Market Price Alert Alarms', id: 'market-alerts-section', targetTab: 'audit', subtitle: 'Cycle Audit Section', keywords: 'price alarms alert thresholds notifications upper bound lower bound trigger' },

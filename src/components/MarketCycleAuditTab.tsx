@@ -13,7 +13,13 @@ import {
   RotateCcw,
   ShieldCheck,
   Coins,
-  Bell
+  Bell,
+  CloudUpload,
+  Database,
+  Cpu,
+  Zap,
+  Calculator,
+  RefreshCw
 } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
 import { formatTimeAgo } from '../lib/formatters';
@@ -50,14 +56,68 @@ export interface DeploymentPlanItem {
   description: string;
 }
 
-export const INITIAL_CYCLE_ITEMS: CycleItem[] = [
-  { id: 'c-1', asset: 'Bitcoin', phase: 'Consolidation', sentiment: 'Neutral', logic: 'BTC trading near $63,900, range-bound between roughly $62,700-$65,400 over the past week after slipping from summer highs near $65k-71k. Maintain long-term accumulation bias; no fresh catalyst either way.' },
-  { id: 'c-2', asset: 'PAX Gold', phase: 'Consolidation', sentiment: 'Neutral', logic: 'Spot gold trading around $4,010-4,015/oz, down modestly from the ~$4,043 level in the prior audit but still near record territory. Heavy defensive base asset intact.' },
-  { id: 'c-3', asset: 'REITs', phase: 'Markup', sentiment: 'Bullish', logic: 'RCR REIT up roughly 5.8% over the past month on continued dividend demand; office/commercial REIT sentiment remains constructive.' },
-  { id: 'c-4', asset: 'SCC Energy', phase: 'Markdown', sentiment: 'Bearish', logic: 'SCC has drifted down toward the ₱21-25 range from ₱29+ earlier in the year on softer coal prices and lower 2025 earnings; a high-yield dividend name but still trending lower.' },
-  { id: 'c-5', asset: 'SPC Power', phase: 'Markup', sentiment: 'Bullish', logic: 'SPC has climbed from the ₱9.85-10.46 range earlier in the year to ₱10.78, a solid utility demand story with a net-cash balance sheet.' },
-  { id: 'c-6', asset: 'Safe Shield', phase: 'Hardening', sentiment: 'Bullish', logic: 'Dec 29 TD remains in matured/pending status; Dec 3 TD continuing to accrue at 6% p.a. HYS compounding at 5% p.a.' }
-];
+export const INITIAL_CYCLE_ITEMS: CycleItem[] = [];
+
+export function buildCycleItemsFromAssets(assetsList: AssetPosition[], totalVal: number): CycleItem[] {
+  if (!assetsList || assetsList.length === 0) return [];
+
+  return assetsList
+    .filter((a) => {
+      if (a.class === 'liability' || a.class === 'physical' || a.assetType === 'property') return false;
+      const lowerName = a.name.toLowerCase();
+      if (
+        a.class === 'safe' ||
+        a.class === 'hys' ||
+        a.assetType === 'cash' ||
+        a.assetType === 'deposit' ||
+        a.assetType === 'hys' ||
+        lowerName.includes('high-yield') ||
+        lowerName.includes('time deposit') ||
+        lowerName.includes('personal loan') ||
+        lowerName.includes('savings') ||
+        lowerName.includes('deposit') ||
+        lowerName.includes('loan')
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .map((a, idx) => {
+      const val = a.units * a.currentPricePHP;
+      const weightPct = totalVal > 0 ? (val / totalVal) * 100 : 0;
+      const change = a.change24h || 0;
+
+      let phase = 'Consolidation';
+      let sentiment: 'Bullish' | 'Bearish' | 'Neutral' = 'Neutral';
+
+      if (change >= 2) {
+        phase = 'Markup';
+        sentiment = 'Bullish';
+      } else if (change <= -2) {
+        phase = 'Markdown';
+        sentiment = 'Bearish';
+      }
+
+      const assetClassLabel = a.class ? a.class.toUpperCase() : 'ASSET';
+
+      let logic = '';
+      if (change >= 2) {
+        logic = `${a.name} is in a markup phase with a +${change.toFixed(2)}% price increase in 24 hours, currently valued at ₱${a.currentPricePHP.toLocaleString()}.`;
+      } else if (change <= -2) {
+        logic = `${a.name} experienced a price markdown of ${Math.abs(change).toFixed(2)}% over 24 hours to ₱${a.currentPricePHP.toLocaleString()}. Position monitored for dollar-cost averaging.`;
+      } else {
+        logic = `${a.name} is trading in consolidation at ₱${a.currentPricePHP.toLocaleString()} (${change >= 0 ? '+' : ''}${change.toFixed(2)}% in 24h), accounting for ${weightPct.toFixed(1)}% of total portfolio value.`;
+      }
+
+      return {
+        id: `c-dyn-${a.key || idx}`,
+        asset: `${a.name} [${assetClassLabel}]`,
+        phase,
+        sentiment,
+        logic
+      };
+    });
+}
 
 export const INITIAL_DEVALUATION_ITEMS: DevaluationItem[] = [
   { id: 'dv-1', indicator: 'USD/PHP Rate', marketRef: '₱61.62 (up from ₱61.42)', portfolioExposure: '15.00% (Risk Sleeve)', hedgeStatus: 'SECURE (USD-proxy assets hedge PHP volatility)', statusType: 'SECURE' },
@@ -98,6 +158,14 @@ export interface MarketCycleAuditTabProps {
   budgetCap?: string;
   onUpdateBudgetCap?: (cap: string) => void;
   onTriggerPopupModal?: (type: 'quota' | 'search_grounding', title?: string, message?: string) => void;
+  onSyncCycleAuditToCloud?: (
+    cycleItems?: CycleItem[],
+    devaluationItems?: DevaluationItem[],
+    devaluationTactics?: string,
+    auditChanges?: AuditChangeItem[],
+    deploymentItems?: DeploymentPlanItem[],
+    budgetCap?: string
+  ) => void;
 }
 
 export default function MarketCycleAuditTab({
@@ -120,6 +188,7 @@ export default function MarketCycleAuditTab({
   budgetCap: propBudgetCap,
   onUpdateBudgetCap,
   onTriggerPopupModal,
+  onSyncCycleAuditToCloud,
 }: MarketCycleAuditTabProps) {
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -155,6 +224,10 @@ export default function MarketCycleAuditTab({
   const handleAlertSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onAddAlert) return;
+    if (alerts && alerts.length >= 10) {
+      triggerLocalToast('Maximum of 10 active trigger updates per week reached.', 'error');
+      return;
+    }
     const targetAsset = alertAssetKey === 'all' ? 'All / Portfolio Wide' : (assets.find(a => a.key === alertAssetKey)?.name || alertAssetKey);
     onAddAlert({
       asset: targetAsset,
@@ -220,26 +293,47 @@ export default function MarketCycleAuditTab({
     onUpdateDevaluationTactics?.(next);
   };
 
-  // --- AUDIT CHANGES STATE (Maximum 5 items enforced) ---
+  // --- AUDIT CHANGES STATE (Maximum 10 items enforced) ---
   const [localAuditChanges, setLocalAuditChanges] = useState<AuditChangeItem[]>(() => {
     const saved = localStorage.getItem('portfolio_audit_changes');
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
-        return Array.isArray(parsed) ? parsed.slice(0, 5) : INITIAL_AUDIT_CHANGES;
+        return Array.isArray(parsed) ? parsed.slice(0, 10) : INITIAL_AUDIT_CHANGES;
       } catch (e) {}
     }
     return INITIAL_AUDIT_CHANGES;
   });
-  const auditChanges = (propAuditChanges && propAuditChanges.length > 0) ? propAuditChanges.slice(0, 5) : localAuditChanges;
+  const auditChanges = (propAuditChanges && propAuditChanges.length > 0) ? propAuditChanges.slice(0, 10) : localAuditChanges;
   const [isEditingAudit, setIsEditingAudit] = useState(false);
 
   const setAuditChanges = (val: AuditChangeItem[] | ((prev: AuditChangeItem[]) => AuditChangeItem[])) => {
     const next = typeof val === 'function' ? val(auditChanges) : val;
-    const sliced = next.slice(0, 5);
+    const sliced = next.slice(0, 10);
     localStorage.setItem('portfolio_audit_changes', JSON.stringify(sliced));
     setLocalAuditChanges(sliced);
     onUpdateAuditChanges?.(sliced);
+  };
+
+  // Dynamic Audit Range Dates State (Updated when running Zero-AI Engine)
+  const [auditStartDate, setAuditStartDate] = useState<string>(() => {
+    const saved = localStorage.getItem('portfolio_audit_start_date');
+    if (saved) return saved;
+    const prev = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000);
+    return prev.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  });
+
+  const [auditEndDate, setAuditEndDate] = useState<string>(() => {
+    const saved = localStorage.getItem('portfolio_audit_end_date');
+    if (saved) return saved;
+    return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  });
+
+  const updateAuditDates = (start: string, end: string) => {
+    setAuditStartDate(start);
+    setAuditEndDate(end);
+    localStorage.setItem('portfolio_audit_start_date', start);
+    localStorage.setItem('portfolio_audit_end_date', end);
   };
 
   // --- DEPLOYMENT PLAN STATE ---
@@ -343,6 +437,206 @@ export default function MarketCycleAuditTab({
     }
   };
 
+  // Auto-sync Section 1 Cycle Items whenever user adds/edits assets in Risk & Safe Assets
+  useEffect(() => {
+    if (assets && assets.length > 0) {
+      const activeCycleAssets = assets.filter((a) => {
+        if (a.class === 'liability' || a.class === 'physical' || a.assetType === 'property') return false;
+        const lowerName = a.name.toLowerCase();
+        if (
+          a.class === 'safe' ||
+          a.class === 'hys' ||
+          a.assetType === 'cash' ||
+          a.assetType === 'deposit' ||
+          a.assetType === 'hys' ||
+          lowerName.includes('high-yield') ||
+          lowerName.includes('time deposit') ||
+          lowerName.includes('personal loan') ||
+          lowerName.includes('savings') ||
+          lowerName.includes('deposit') ||
+          lowerName.includes('loan')
+        ) {
+          return false;
+        }
+        return true;
+      });
+      const totalVal = activeCycleAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+      const generated = buildCycleItemsFromAssets(assets, totalVal);
+
+      const genKeyStr = generated.map(g => g.asset).sort().join('|');
+      const currKeyStr = cycleItems.map(c => c.asset).sort().join('|');
+
+      if (genKeyStr !== currKeyStr) {
+        setCycleItems(generated);
+      }
+    }
+  }, [assets]);
+
+  // Zero-AI Algorithmic Rule Engine (100% Deterministic Mathematical Formulas across ALL 4 Sections)
+  const handleAlgorithmicDataRefreshAndSync = () => {
+    const usdRate = usdPhpRate || 58.5;
+    const safeAssetsList = assets.filter((a) => a.class === 'safe' || a.class === 'hys' || a.assetType === 'hys' || a.assetType === 'deposit' || a.assetType === 'cash');
+    const totalSafeVal = safeAssetsList.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+    const riskAssetsList = assets.filter((a) => a.class === 'risk' || a.assetType === 'crypto' || a.assetType === 'equity' || a.assetType === 'commodity');
+    const totalRiskVal = riskAssetsList.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+    const totalVal = totalSafeVal + totalRiskVal;
+    
+    const safePct = totalVal > 0 ? (totalSafeVal / totalVal) * 100 : 60;
+    const riskPct = totalVal > 0 ? (totalRiskVal / totalVal) * 100 : 40;
+
+    const btcAsset = assets.find(a => a.key === 'btc' || a.key.includes('btc') || a.name.toLowerCase().includes('bitcoin'));
+    const btcChange = btcAsset?.change24h || 0;
+
+    // SECTION 1: Asset Cycle Analysis (Price Phase - strictly built from user's Risk & Safe Assets holdings)
+    const newCycleItems: CycleItem[] = buildCycleItemsFromAssets(assets, totalVal);
+
+    // SECTION 2: Currency Devaluation & USD Asset Defense (BSP)
+    const newDevaluationItems: DevaluationItem[] = [
+      {
+        id: 'dv-1',
+        indicator: 'USD/PHP FX Benchmark',
+        marketRef: `₱${usdRate.toFixed(2)} (BSP Market Ref)`,
+        portfolioExposure: `${riskPct.toFixed(1)}% (Risk Sleeve)`,
+        hedgeStatus: usdRate >= 57.5 ? 'SECURE (USD assets act as natural hedge against PHP weakness)' : 'NEUTRAL (FX within standard target band)',
+        statusType: 'SECURE'
+      },
+      {
+        id: 'dv-2',
+        indicator: 'PH Inflation (PSA CPI)',
+        marketRef: '3.4% Baseline',
+        portfolioExposure: `${safePct.toFixed(1)}% (Safe Shield)`,
+        hedgeStatus: safePct >= 60 ? 'SECURE (High-Yield Maya Bank interest outpacing 3.4% inflation)' : 'UNDER-YIELDING (Safe shield weight below recommended 60% ratio)',
+        statusType: safePct >= 60 ? 'SECURE' : 'UNDER-YIELDING'
+      },
+      {
+        id: 'dv-3',
+        indicator: 'High-Yield Reserve Defense (Maya Bank HYS / TD)',
+        marketRef: '6.0% - 10.0% HYS Base',
+        portfolioExposure: `₱${totalSafeVal.toLocaleString()}`,
+        hedgeStatus: 'SECURE (Maya Bank high-yield savings interest shields capital from local currency degradation)',
+        statusType: 'SECURE'
+      }
+    ];
+
+    const newDevaluationTactics = `🛡️ Algorithmic USD Defense Matrix: USD/PHP spot ₱${usdRate.toFixed(2)}. Current Safe Shield weight is ${safePct.toFixed(1)}% (₱${totalSafeVal.toLocaleString()}) and Risk Sleeve weight is ${riskPct.toFixed(1)}% (₱${totalRiskVal.toLocaleString()}). USD proxy hedges (BTC, Gold, Foreign Equities) preserve global purchasing power against local currency depreciation.`;
+
+    const now = new Date();
+    const formattedNowDate = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const formattedShortNow = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    // Update audit period range dynamically when engine runs
+    const prevDateStr = auditEndDate.split(',')[0].trim();
+    if (prevDateStr && prevDateStr !== formattedShortNow) {
+      updateAuditDates(prevDateStr, formattedNowDate);
+    } else {
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      updateAuditDates(thirtyDaysAgo.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), formattedNowDate);
+    }
+
+    // SECTION 3: Recent Audit & Strategy Revision Logs
+    const newAuditChanges: AuditChangeItem[] = [
+      {
+        id: `ac-${now.getTime()}-1`,
+        title: `Zero-AI Engine Audit Sync (${formattedShortNow})`,
+        description: `Automated audit refreshed on ${formattedNowDate}: USD/PHP spot at ₱${usdRate.toFixed(2)}, BTC at ₱${(btcAsset?.currentPricePHP || 0).toLocaleString()}, Safe Shield at ${safePct.toFixed(1)}% / Risk Sleeve at ${riskPct.toFixed(1)}%.`
+      },
+      {
+        id: `ac-${now.getTime()}-2`,
+        title: `Safe Shield Allocation Math (${formattedShortNow})`,
+        description: `Safe Shield capital totals ₱${totalSafeVal.toLocaleString()} (${safePct.toFixed(1)}% weight). ${safePct < 60 ? 'Safe Shield below 60% baseline. Rebalancing recommended toward Maya Bank HYS.' : 'Safe Shield baseline optimal (≥ 60%).'}`
+      },
+      ...auditChanges.slice(0, 8)
+    ];
+
+    // SECTION 4: Capital Deployment Matrix & Budget Cap Rules
+    const newDeploymentItems: DeploymentPlanItem[] = [
+      {
+        id: 'dp-1',
+        date: 'Immediate',
+        asset: 'Maya Bank HYS / Safe Cash',
+        amount: `₱${(totalVal * 0.1).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        status: safePct < 60 ? 'PROCEED' : 'HOLD',
+        description: safePct < 60 ? 'Direct 100% of capital surplus to Safe Shield (Maya Bank HYS) to reach 60% baseline' : 'Safe Shield baseline satisfied; proceed with standard DCA'
+      },
+      {
+        id: 'dp-2',
+        date: 'Mid-Month',
+        asset: 'USD / Gold Hedge',
+        amount: `₱${(totalVal * 0.05).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        status: usdRate >= 57.5 ? 'PROCEED' : 'HOLD',
+        description: usdRate >= 57.5 ? `USD/PHP ₱${usdRate.toFixed(2)} above threshold; accumulate USD proxy hedges` : 'USD/PHP rate stable; preserve local currency liquidity'
+      },
+      {
+        id: 'dp-3',
+        date: 'End-Month',
+        asset: 'Crypto & Equity Sleeve',
+        amount: `₱${(totalVal * 0.05).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        status: safePct < 60 ? 'ABORT' : 'PROCEED',
+        description: safePct < 60 ? 'Risk expansion paused until Safe Shield reaches 60%' : 'Proceed with measured DCA into BTC & dividend equity sleeve'
+      }
+    ];
+
+    const newBudgetCap = `Budget Cap: ₱20,000 Monthly Deployment (${safePct < 60 ? '100% Allocation to Safe Shield (Rebalancing active)' : '80% Safe Shield / 20% Risk Sleeve'})`;
+
+    // SECTION 5: Custom Price-Drop & Volatility Alert Triggers Evaluation
+    if (onAddAlert) {
+      // 1. Bitcoin Volatility Trigger Rule
+      const existingBtcAlert = alerts.find(a => a.asset.includes('Bitcoin') || a.asset.includes('BTC'));
+      if (!existingBtcAlert) {
+        onAddAlert({
+          asset: 'Bitcoin (BTC)',
+          type: btcChange >= 2 ? 'up' : btcChange <= -2 ? 'down' : 'volatility',
+          message: `⚡ Zero-AI Rule Engine: BTC 24h swing is ${btcChange >= 0 ? '+' : ''}${btcChange.toFixed(2)}% (Spot ₱${(btcAsset?.currentPricePHP || 5200000).toLocaleString()}). ${btcChange >= 2 ? 'Breakout trigger activated.' : btcChange <= -2 ? 'Price drawdown alert triggered.' : 'Consolidation threshold monitored.'}`,
+          thresholdPercentage: 2.0
+        });
+      }
+
+      // 2. USD / PHP FX Rate Trigger Rule
+      const existingUsdAlert = alerts.find(a => a.asset.includes('USD') || a.asset.includes('FX'));
+      if (!existingUsdAlert) {
+        onAddAlert({
+          asset: 'USD / PHP FX',
+          type: usdRate >= 58 ? 'volatility' : 'info',
+          message: `⚡ Zero-AI Rule Engine: USD/PHP spot rate at ₱${usdRate.toFixed(2)} (BSP Ref). ${usdRate >= 58 ? 'High FX volatility threshold active (≥ ₱58.00).' : 'Normal FX target band.'}`,
+          thresholdPercentage: 1.5
+        });
+      }
+
+      // 3. Portfolio Safe Shield Risk Trigger Rule
+      const existingShieldAlert = alerts.find(a => a.asset.includes('Safe Shield') || a.asset.includes('Portfolio'));
+      if (!existingShieldAlert) {
+        onAddAlert({
+          asset: 'Portfolio Safe Shield',
+          type: safePct < 60 ? 'down' : 'info',
+          message: `⚡ Zero-AI Rule Engine: Safe Shield capital is ₱${totalSafeVal.toLocaleString()} (${safePct.toFixed(1)}% weight). ${safePct < 60 ? 'CRITICAL: Below 60% safety baseline threshold!' : 'Optimal safe allocation baseline.'}`,
+          thresholdPercentage: 60.0
+        });
+      }
+    }
+
+    // Update state across all sections
+    setCycleItems(newCycleItems);
+    setDevaluationItems(newDevaluationItems);
+    setDevaluationTactics(newDevaluationTactics);
+    setAuditChanges(newAuditChanges.slice(0, 5));
+    setDeploymentItems(newDeploymentItems);
+    setBudgetCap(newBudgetCap);
+
+    // Sync all updated sections to Firestore / Database immediately
+    if (onSyncCycleAuditToCloud) {
+      onSyncCycleAuditToCloud(
+        newCycleItems,
+        newDevaluationItems,
+        newDevaluationTactics,
+        newAuditChanges.slice(0, 5),
+        newDeploymentItems,
+        newBudgetCap
+      );
+    } else {
+      triggerLocalToast('⚡ Zero-AI Rule Engine executed & saved locally!', 'success');
+    }
+  };
+
   // Dynamic Portfolio Weight Calculations
   const safeAssets = assets.filter((a) => a.class === 'safe');
   const totalSafeShield = safeAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
@@ -367,8 +661,20 @@ export default function MarketCycleAuditTab({
             Market Cycle & Audit Intelligence
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Real-time tracking of asset cycle price phases, BSP currency devaluation hedges, USD defense mechanics, and audit revision logs.
+            Real-time tracking of asset cycle price phases, BSP currency devaluation hedges, USD defense mechanics, and audit revision logs across all sections.
           </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleAlgorithmicDataRefreshAndSync}
+            className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all cursor-pointer active:scale-95"
+            title="Recalculate all 4 Cycle Audit sections using live deterministic math formulas and sync directly to cloud database"
+          >
+            <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+            <CloudUpload className="w-4 h-4" />
+            <span>⚡ Run Zero-AI Engine & Sync to Database</span>
+          </button>
         </div>
       </div>
 
@@ -385,7 +691,15 @@ export default function MarketCycleAuditTab({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleAlgorithmicDataRefreshAndSync}
+              className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/50 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+              title="Run 100% deterministic math rule engine & sync to database (0 AI quota used)"
+            >
+              <Calculator className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Zero-AI Rule Engine & Sync</span>
+            </button>
             {isEditingCycle && (
               <>
                 <button
@@ -742,16 +1056,18 @@ export default function MarketCycleAuditTab({
         </div>
       </div>
 
-      {/* SECTION 3: WHAT CHANGED SINCE THE LAST AUDIT (MAXIMUM OF 5 UPDATES) */}
+      {/* SECTION 3: WHAT CHANGED SINCE THE LAST AUDIT (MAXIMUM OF 10 UPDATES) */}
       <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
               <Info className="w-4 h-4 text-blue-600" />
-              <span>3. What Changed Since The Last Audit (Jul 2 → {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})</span>
+              <span>
+                3. What Changed Since The Last Audit ({auditStartDate} → {auditEndDate})
+              </span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Strict audit log tracking key balance adjustments, rate changes, and portfolio structural shifts (Maximum of 5 updates)
+              Strict audit log tracking key balance adjustments, rate changes, and portfolio structural shifts (Maximum of 10 updates)
             </p>
           </div>
 
@@ -759,9 +1075,9 @@ export default function MarketCycleAuditTab({
             {isEditingAudit && (
               <>
                 <button
-                  disabled={auditChanges.length >= 5}
+                  disabled={auditChanges.length >= 10}
                   onClick={() => {
-                    if (auditChanges.length < 5) {
+                    if (auditChanges.length < 10) {
                       const newItem: AuditChangeItem = {
                         id: `ac-${Date.now()}`,
                         title: 'New Update Title',
@@ -772,11 +1088,11 @@ export default function MarketCycleAuditTab({
                   }}
                   className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add Update ({auditChanges.length}/5)
+                  <Plus className="w-3.5 h-3.5" /> Add Update ({auditChanges.length}/10)
                 </button>
                 <button
                   onClick={() => {
-                    if (window.confirm('Reset audit changes list to default 5 updates?')) {
+                    if (window.confirm('Reset audit changes list to default updates?')) {
                       setAuditChanges(INITIAL_AUDIT_CHANGES);
                     }
                   }}
@@ -800,99 +1116,107 @@ export default function MarketCycleAuditTab({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          <div className="space-y-4">
-            {auditChanges.slice(0, 3).map((item, idx) => (
-              <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5 rounded-xl flex items-start space-x-3 group">
-                <span className="w-5 h-5 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                  {idx + 1}
-                </span>
-                <div className="flex-1">
-                  {isEditingAudit ? (
-                    <div className="space-y-1.5 w-full">
-                      <input
-                        type="text"
-                        value={item.title}
-                        onChange={(e) => {
-                          setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, title: e.target.value } : a));
-                        }}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs font-bold w-full"
-                      />
-                      <textarea
-                        value={item.description}
-                        onChange={(e) => {
-                          setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, description: e.target.value } : a));
-                        }}
-                        rows={2}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs w-full"
-                      />
-                    </div>
-                  ) : (
-                    <p>
-                      <strong className="font-bold text-slate-900 dark:text-white">{item.title}:</strong> {item.description}
-                    </p>
-                  )}
-                </div>
-                {isEditingAudit && (
-                  <button
-                    onClick={() => {
-                      setAuditChanges(prev => prev.filter(a => a.id !== item.id));
-                    }}
-                    className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded shrink-0 self-center cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+        {(() => {
+          const col1Count = Math.max(1, Math.ceil(auditChanges.length / 2));
+          const col1Items = auditChanges.slice(0, col1Count);
+          const col2Items = auditChanges.slice(col1Count);
 
-          <div className="space-y-4">
-            {auditChanges.slice(3, 5).map((item, idx) => (
-              <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5 rounded-xl flex items-start space-x-3 group">
-                <span className="w-5 h-5 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                  {idx + 4}
-                </span>
-                <div className="flex-1">
-                  {isEditingAudit ? (
-                    <div className="space-y-1.5 w-full">
-                      <input
-                        type="text"
-                        value={item.title}
-                        onChange={(e) => {
-                          setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, title: e.target.value } : a));
-                        }}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs font-bold w-full"
-                      />
-                      <textarea
-                        value={item.description}
-                        onChange={(e) => {
-                          setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, description: e.target.value } : a));
-                        }}
-                        rows={2}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs w-full"
-                      />
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="space-y-4">
+                {col1Items.map((item, idx) => (
+                  <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5 rounded-xl flex items-start space-x-3 group">
+                    <span className="w-5 h-5 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1">
+                      {isEditingAudit ? (
+                        <div className="space-y-1.5 w-full">
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => {
+                              setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, title: e.target.value } : a));
+                            }}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs font-bold w-full"
+                          />
+                          <textarea
+                            value={item.description}
+                            onChange={(e) => {
+                              setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, description: e.target.value } : a));
+                            }}
+                            rows={2}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs w-full"
+                          />
+                        </div>
+                      ) : (
+                        <p>
+                          <strong className="font-bold text-slate-900 dark:text-white">{item.title}:</strong> {item.description}
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <p>
-                      <strong className="font-bold text-slate-900 dark:text-white">{item.title}:</strong> {item.description}
-                    </p>
-                  )}
-                </div>
-                {isEditingAudit && (
-                  <button
-                    onClick={() => {
-                      setAuditChanges(prev => prev.filter(a => a.id !== item.id));
-                    }}
-                    className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded shrink-0 self-center cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                    {isEditingAudit && (
+                      <button
+                        onClick={() => {
+                          setAuditChanges(prev => prev.filter(a => a.id !== item.id));
+                        }}
+                        className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded shrink-0 self-center cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
+
+              <div className="space-y-4">
+                {col2Items.map((item, idx) => (
+                  <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/60 dark:border-white/5 rounded-xl flex items-start space-x-3 group">
+                    <span className="w-5 h-5 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                      {col1Count + idx + 1}
+                    </span>
+                    <div className="flex-1">
+                      {isEditingAudit ? (
+                        <div className="space-y-1.5 w-full">
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => {
+                              setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, title: e.target.value } : a));
+                            }}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs font-bold w-full"
+                          />
+                          <textarea
+                            value={item.description}
+                            onChange={(e) => {
+                              setAuditChanges(prev => prev.map(a => a.id === item.id ? { ...a, description: e.target.value } : a));
+                            }}
+                            rows={2}
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded px-2.5 py-1 text-xs w-full"
+                          />
+                        </div>
+                      ) : (
+                        <p>
+                          <strong className="font-bold text-slate-900 dark:text-white">{item.title}:</strong> {item.description}
+                        </p>
+                      )}
+                    </div>
+                    {isEditingAudit && (
+                      <button
+                        onClick={() => {
+                          setAuditChanges(prev => prev.filter(a => a.id !== item.id));
+                        }}
+                        className="p-1 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded shrink-0 self-center cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* SECTION 4: CAPITAL DEPLOYMENT PLAN */}
@@ -1072,7 +1396,7 @@ export default function MarketCycleAuditTab({
         </div>
       </div>
 
-      {/* SECTION 5: CUSTOM PRICE-DROP & VOLATILITY ALERT TRIGGERS */}
+      {/* SECTION 5: CUSTOM PRICE-DROP & VOLATILITY ALERT TRIGGERS (MAX 10 UPDATES PER WEEK) */}
       <div id="alert-triggers" className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-white/10 pb-4">
           <div>
@@ -1081,7 +1405,7 @@ export default function MarketCycleAuditTab({
               <span>5. Custom Price-Drop & Volatility Alert Triggers</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-              Define custom percentage threshold triggers for specific assets or portfolio-wide indices. Receive real-time toast and news feed notifications upon breach.
+              Define custom percentage threshold triggers for specific assets or portfolio-wide indices. Evaluated deterministically by the Zero-AI Rule Engine with real-time notifications (Maximum of 10 updates per week).
             </p>
           </div>
           <button
@@ -1185,7 +1509,12 @@ export default function MarketCycleAuditTab({
         )}
 
         <div className="space-y-3">
-          <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Trigger Rules & News Feeds</h4>
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Active Trigger Rules & News Feeds</h4>
+            <span className="text-[10px] font-mono text-slate-400 font-semibold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+              {alerts?.length || 0}/10 Max Updates Per Week
+            </span>
+          </div>
           {(!alerts || alerts.length === 0) ? (
             <div className="p-6 bg-slate-50 dark:bg-slate-950/50 rounded-xl text-center text-xs text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-white/10">
               No active alert rules or news feeds configured. Click "New Trigger Rule" above to add price-drop or volatility triggers.

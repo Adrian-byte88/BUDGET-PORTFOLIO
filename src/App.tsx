@@ -270,6 +270,7 @@ export default function App() {
 
   const isInitialized = React.useRef(false);
   const isRemoteUpdate = React.useRef(false);
+  const isTickerUpdateRef = React.useRef(false);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'assets' | 'ledger' | 'social' | 'audit' | 'transactions'>('dashboard');
   const [darkMode, setDarkMode] = useState(false);
@@ -459,11 +460,52 @@ export default function App() {
     }
   }, [toast]);
 
-  // Automated state persistence to Firestore with fast debounce and LocalStorage backup
+  // Manual sync for Market Cycle Audit data to Firestore
+  const handleSyncCycleAuditToCloud = async (
+    customCycleItems?: CycleItem[],
+    customDevaluationItems?: DevaluationItem[],
+    customDevaluationTactics?: string,
+    customAuditChanges?: AuditChangeItem[],
+    customDeploymentItems?: DeploymentPlanItem[],
+    customBudgetCap?: string
+  ) => {
+    if (!email) {
+      triggerToast('Cloud Sync', 'Please sign in to sync Cycle Audit data.', 'warning');
+      return;
+    }
+    const cItems = customCycleItems || cycleItems;
+    const dItems = customDevaluationItems || devaluationItems;
+    const dTactics = customDevaluationTactics || devaluationTactics;
+    const aChanges = customAuditChanges || auditChanges;
+    const depItems = customDeploymentItems || deploymentItems;
+    const bCap = customBudgetCap || budgetCap;
+
+    try {
+      await setDoc(doc(db, "users", email, "financialData", "data"), {
+        cycleItems: cItems,
+        devaluationItems: dItems,
+        devaluationTactics: dTactics,
+        auditChanges: aChanges,
+        deploymentItems: depItems,
+        budgetCap: bCap,
+        updatedAt: Date.now(),
+      }, { merge: true });
+      triggerToast('Cycle Audit Synced', '⚡ Market Cycle Audit recalculated & synced to database.', 'success');
+    } catch (err: any) {
+      console.error("Error syncing Cycle Audit to Firestore:", err);
+      triggerToast('Sync Error', 'Failed to save Cycle Audit to Firestore.', 'error');
+    }
+  };
+
+  // Automated state persistence to Firestore with optimized debounce (Cycle audit & market ticker ticks excluded to save quota)
   useEffect(() => {
     if (email && isInitialized.current) {
       if (isRemoteUpdate.current) {
         isRemoteUpdate.current = false;
+        return;
+      }
+      if (isTickerUpdateRef.current) {
+        isTickerUpdateRef.current = false;
         return;
       }
       if (assets && assets.length > 0) {
@@ -477,21 +519,16 @@ export default function App() {
           budgets,
           targetAllocation,
           alerts,
-          cycleItems,
-          devaluationItems,
-          devaluationTactics,
-          auditChanges,
-          deploymentItems,
           budgetCap,
           updatedAt: Date.now(),
         };
         setDoc(doc(db, "users", email, "financialData", "data"), dataToSync, { merge: true })
           .catch(console.error);
-      }, 400);
+      }, 3000);
 
       return () => clearTimeout(handler);
     }
-  }, [assets, expenses, goals, budgets, targetAllocation, alerts, cycleItems, devaluationItems, devaluationTactics, auditChanges, deploymentItems, budgetCap, email]);
+  }, [assets, expenses, goals, budgets, targetAllocation, alerts, budgetCap, email]);
 
   // Automated budget sync with expense ledger
   useEffect(() => {
@@ -522,6 +559,7 @@ export default function App() {
       });
 
       // Fluctuate asset prices and recalculate 24h performance
+      isTickerUpdateRef.current = true;
       setAssets((prevAssets) => {
         if (!prevAssets || prevAssets.length === 0) return prevAssets;
 
@@ -563,6 +601,7 @@ export default function App() {
             USD: prices.usd_php || prev.USD,
           }));
 
+          isTickerUpdateRef.current = true;
           setAssets((prevAssets) => {
             if (!prevAssets || prevAssets.length === 0) return prevAssets;
             return prevAssets.map((asset) => {
@@ -1413,6 +1452,7 @@ export default function App() {
             budgetCap={budgetCap}
             onUpdateBudgetCap={setBudgetCap}
             onTriggerPopupModal={triggerPopupModal}
+            onSyncCycleAuditToCloud={handleSyncCycleAuditToCloud}
           />
         )}
 

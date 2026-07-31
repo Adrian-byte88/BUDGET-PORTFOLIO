@@ -17,8 +17,8 @@ interface AssetSleeveTabProps {
       yieldPercent?: number; 
       yieldFrequency?: 'annual' | 'monthly' | 'semi-annual' | 'quarterly'; 
       withholdingTaxPercent?: number;
-      assetClass?: 'safe' | 'risk' | 'physical' | 'liability';
-      assetType?: 'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
+      assetClass?: 'safe' | 'risk' | 'physical' | 'liability' | 'hys';
+      assetType?: 'cash' | 'deposit' | 'hys' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
     }
   ) => void;
   onAddTrade: (trade: Omit<TradeEntry, 'id'>) => void;
@@ -114,7 +114,7 @@ export default function AssetSleeveTab({
   const [newAssetName, setNewAssetName] = useState('');
   const [newAssetPlatform, setNewAssetPlatform] = useState('');
   const [newAssetClass, setNewAssetClass] = useState<'safe' | 'risk' | 'physical'>('safe');
-  const [newAssetType, setNewAssetType] = useState<'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property'>('cash');
+  const [newAssetType, setNewAssetType] = useState<'cash' | 'deposit' | 'hys' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability'>('cash');
   const [newAssetUnits, setNewAssetUnits] = useState('1');
   const [newAssetCost, setNewAssetCost] = useState('0');
   const [newAssetPrice, setNewAssetPrice] = useState('1');
@@ -770,6 +770,7 @@ export default function AssetSleeveTab({
                   >
                     <option value="cash">Cash</option>
                     <option value="deposit">Deposit / Time Dep</option>
+                    <option value="hys">High Yield Savings (HYS / Maya)</option>
                     <option value="crypto">Cryptocurrency</option>
                     <option value="commodity">Commodity / Metals</option>
                     <option value="equity">Equity / PSE Stocks</option>
