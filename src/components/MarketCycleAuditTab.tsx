@@ -364,11 +364,181 @@ export default function MarketCycleAuditTab({
             <span>Macro Research & Currency Audit</span>
           </div>
           <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-            Currency Defense & Macro Audit
+            Market Cycle & Audit Intelligence
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
-            Real-time tracking of BSP currency devaluation hedges, USD defense mechanics, rebalancing rules, and audit revision logs.
+            Real-time tracking of asset cycle price phases, BSP currency devaluation hedges, USD defense mechanics, and audit revision logs.
           </p>
+        </div>
+      </div>
+
+      {/* SECTION 1: ASSET CYCLE ANALYSIS (PRICE PHASE) */}
+      <div id="cycle-audit-section" data-highlight-id="cycle-audit-section" className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 sm:p-8 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
+              <Activity className="w-4 h-4 text-indigo-500" />
+              <span>1. Asset Cycle Analysis (Price Phase)</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Cycle phase, market sentiment, and institutional thesis for key holdings
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isEditingCycle && (
+              <>
+                <button
+                  onClick={() => {
+                    const newItem: CycleItem = {
+                      id: `c-${Date.now()}`,
+                      asset: 'New Asset',
+                      phase: 'Consolidation',
+                      sentiment: 'Neutral',
+                      logic: 'Institutional reasoning...'
+                    };
+                    setCycleItems([...cycleItems, newItem]);
+                  }}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Row
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm('Reset cycle analysis to defaults?')) {
+                      setCycleItems(INITIAL_CYCLE_ITEMS);
+                    }
+                  }}
+                  className="px-3 py-1.5 border border-slate-200 dark:border-white/10 text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setIsEditingCycle(!isEditingCycle)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
+                isEditingCycle 
+                  ? 'bg-emerald-600 text-white' 
+                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              {isEditingCycle ? <Check className="w-3.5 h-3.5" /> : <Edit2 className="w-3.5 h-3.5" />}
+              <span>{isEditingCycle ? 'Done' : 'Edit Section'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100 dark:border-white/5">
+                <th className="pb-3 pl-2 w-36">Asset Class</th>
+                <th className="pb-3 w-40">Cycle Phase</th>
+                <th className="pb-3 w-32">Sentiment</th>
+                <th className="pb-3 pr-2">Institutional Logic & Market Thesis</th>
+                {isEditingCycle && <th className="pb-3 w-12 text-center">Action</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              {cycleItems.map((item) => {
+                let phaseStyle = 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300';
+                if (item.phase === 'Markup' || item.phase === 'Hardening') {
+                  phaseStyle = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400';
+                } else if (item.phase === 'Markdown') {
+                  phaseStyle = 'bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400';
+                } else if (item.phase === 'Consolidation') {
+                  phaseStyle = 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300';
+                }
+
+                let sentimentColor = 'text-slate-600 dark:text-slate-300';
+                if (item.sentiment === 'Bullish') sentimentColor = 'text-emerald-600 dark:text-emerald-400';
+                else if (item.sentiment === 'Bearish') sentimentColor = 'text-rose-600 dark:text-rose-400';
+                else if (item.sentiment === 'Neutral') sentimentColor = 'text-amber-600 dark:text-amber-400';
+
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01]">
+                    <td className="py-3.5 pl-2 font-bold text-slate-900 dark:text-white">
+                      {isEditingCycle ? (
+                        <input
+                          type="text"
+                          value={item.asset}
+                          onChange={(e) => {
+                            setCycleItems(prev => prev.map(c => c.id === item.id ? { ...c, asset: e.target.value } : c));
+                          }}
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs"
+                        />
+                      ) : (
+                        item.asset
+                      )}
+                    </td>
+                    <td className="py-3.5">
+                      {isEditingCycle ? (
+                        <input
+                          type="text"
+                          value={item.phase}
+                          onChange={(e) => {
+                            setCycleItems(prev => prev.map(c => c.id === item.id ? { ...c, phase: e.target.value } : c));
+                          }}
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs"
+                        />
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-md font-bold text-[10px] uppercase ${phaseStyle}`}>
+                          {item.phase}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5">
+                      {isEditingCycle ? (
+                        <select
+                          value={item.sentiment}
+                          onChange={(e) => {
+                            setCycleItems(prev => prev.map(c => c.id === item.id ? { ...c, sentiment: e.target.value as any } : c));
+                          }}
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs"
+                        >
+                          <option value="Bullish">Bullish 🟢</option>
+                          <option value="Neutral">Neutral 🟡</option>
+                          <option value="Bearish">Bearish 🔴</option>
+                        </select>
+                      ) : (
+                        <span className={`font-black uppercase text-[10px] tracking-wider ${sentimentColor}`}>
+                          {item.sentiment === 'Bullish' ? '🟢 ' : item.sentiment === 'Bearish' ? '🔴 ' : '🟡 '}
+                          {item.sentiment}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 pr-2 text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {isEditingCycle ? (
+                        <textarea
+                          value={item.logic}
+                          onChange={(e) => {
+                            setCycleItems(prev => prev.map(c => c.id === item.id ? { ...c, logic: e.target.value } : c));
+                          }}
+                          rows={2}
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs"
+                        />
+                      ) : (
+                        item.logic
+                      )}
+                    </td>
+                    {isEditingCycle && (
+                      <td className="py-3.5 text-center">
+                        <button
+                          onClick={() => {
+                            setCycleItems(prev => prev.filter(c => c.id !== item.id));
+                          }}
+                          className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 rounded cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
