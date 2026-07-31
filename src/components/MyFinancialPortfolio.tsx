@@ -162,6 +162,10 @@ interface MyFinancialPortfolioProps {
   budgetCap?: string;
   onUpdateBudgetCap?: (cap: string) => void;
   onTriggerPopupModal?: (type: 'quota' | 'search_grounding', title?: string, message?: string) => void;
+  transactions?: HistoricalTx[];
+  onAddTransaction?: (tx: Omit<HistoricalTx, 'id'>) => void;
+  onDeleteTransaction?: (id: string) => void;
+  onResetTransactions?: () => void;
 }
 
 export default function MyFinancialPortfolio({
@@ -182,6 +186,10 @@ export default function MyFinancialPortfolio({
   budgetCap: propBudgetCap,
   onUpdateBudgetCap,
   onTriggerPopupModal,
+  transactions: propTransactions,
+  onAddTransaction,
+  onDeleteTransaction,
+  onResetTransactions,
 }: MyFinancialPortfolioProps) {
   // --- AI AND LOCAL TOAST STATES ---
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
@@ -257,11 +265,12 @@ export default function MyFinancialPortfolio({
   };
 
   // --- HISTORICAL TRANSACTION REGISTRY STATES ---
-  const [txs, setTxs] = useState<HistoricalTx[]>(() => {
+  const [localTxs, setLocalTxs] = useState<HistoricalTx[]>(() => {
     const saved = localStorage.getItem('historical_transactions_registry');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
         // ignore and fallback
       }
@@ -269,9 +278,13 @@ export default function MyFinancialPortfolio({
     return INITIAL_HISTORICAL_TXS;
   });
 
+  const txs = propTransactions !== undefined ? propTransactions : localTxs;
+
   useEffect(() => {
-    localStorage.setItem('historical_transactions_registry', JSON.stringify(txs));
-  }, [txs]);
+    if (!propTransactions) {
+      localStorage.setItem('historical_transactions_registry', JSON.stringify(localTxs));
+    }
+  }, [localTxs, propTransactions]);
 
   // --- 4. CYCLE ITEMS STATE ---
   const [localCycleItems, setLocalCycleItems] = useState<CycleItem[]>(() => {
@@ -463,16 +476,26 @@ export default function MyFinancialPortfolio({
       formattedAmount = `${sign}₱${numericVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 
-    const newTx: HistoricalTx = {
-      id: `h-user-${Date.now()}`,
-      date: newDate,
-      asset: newAsset,
-      type: newType,
-      amount: formattedAmount,
-      details: newDetails
-    };
+    if (onAddTransaction) {
+      onAddTransaction({
+        date: newDate,
+        asset: newAsset,
+        type: newType,
+        amount: formattedAmount,
+        details: newDetails
+      });
+    } else {
+      const newTx: HistoricalTx = {
+        id: `h-user-${Date.now()}`,
+        date: newDate,
+        asset: newAsset,
+        type: newType,
+        amount: formattedAmount,
+        details: newDetails
+      };
+      setLocalTxs([newTx, ...localTxs]);
+    }
 
-    setTxs([newTx, ...txs]);
     setNewAsset('');
     setNewAmount('');
     setNewDetails('');
@@ -480,7 +503,11 @@ export default function MyFinancialPortfolio({
   };
 
   const handleDeleteTx = (id: string) => {
-    setTxs(txs.filter(tx => tx.id !== id));
+    if (onDeleteTransaction) {
+      onDeleteTransaction(id);
+    } else {
+      setLocalTxs(localTxs.filter(tx => tx.id !== id));
+    }
   };
 
   const handleResetTxs = () => {
@@ -651,23 +678,6 @@ export default function MyFinancialPortfolio({
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 shrink-0 w-full sm:w-auto">
-          <button
-            onClick={handleAISentimentUpdate}
-            disabled={isUpdatingAI}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer select-none"
-          >
-            {isUpdatingAI ? (
-              <>
-                <RotateCcw className="w-3.5 h-3.5 animate-spin" />
-                <span>AI Grounding...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3.5 h-3.5 animate-pulse text-yellow-300" />
-                <span>AI Auto-Update Sections</span>
-              </>
-            )}
-          </button>
           <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg text-center sm:text-right">
             <span className="text-[10px] block font-bold text-slate-400 uppercase tracking-widest">Funding Gap</span>
             <span className="text-sm font-black font-mono text-rose-600 dark:text-rose-400">

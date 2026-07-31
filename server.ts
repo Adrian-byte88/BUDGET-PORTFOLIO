@@ -401,17 +401,17 @@ cron.schedule('0 0 * * 1,4', async () => {
       let action: any = null;
 
       if (lower.includes('add') || lower.includes('deposit')) {
-        const match = lower.match(/(?:add|deposit)\s+₱?([\d,]+)/i);
-        const amount = match ? Number(match[1].replace(/,/g, '')) : 15000;
-        reply += `I detected you want to deposit money. I've prepared an action to deposit ₱${amount.toLocaleString()} into your High-Yield Savings account. Click 'Apply' to execute.`;
+        const match = lower.match(/(?:add|deposit|put|top\s*up)?\s*₱?\s*([\d,]+)/i);
+        const amount = match && match[1] ? Number(match[1].replace(/,/g, '')) : 15000;
+        reply += `I detected you want to deposit money. I've prepared an action to deposit ₱${amount.toLocaleString()} into your High-Yield Savings account. Click 'Approve & Write Entry' to execute.`;
         action = {
           type: 'ADD_MONEY',
           payload: { assetKey: 'hys', units: amount }
         };
-      } else if (lower.includes('withdraw')) {
-        const match = lower.match(/withdraw\s+₱?([\d,]+)/i);
-        const amount = match ? Number(match[1].replace(/,/g, '')) : 5000;
-        reply += `I detected you want to withdraw money. I've prepared an action to withdraw ₱${amount.toLocaleString()} from your High-Yield Savings account. Click 'Apply' to execute.`;
+      } else if (lower.includes('withdraw') || lower.includes('deduct') || lower.includes('subtract') || lower.includes('minus') || lower.includes('reduce') || lower.includes('remove') || lower.includes('take')) {
+        const match = lower.match(/(?:withdraw|deduct|subtract|minus|reduce|remove|take\s*out)?\s*₱?\s*([\d,]+)/i);
+        const amount = match && match[1] ? Number(match[1].replace(/,/g, '')) : 7000;
+        reply += `I detected you want to deduct/withdraw money. I've prepared an action to withdraw ₱${amount.toLocaleString()} from your High-Yield Savings account. Click 'Approve & Write Entry' to execute.`;
         action = {
           type: 'WITHDRAW_MONEY',
           payload: { assetKey: 'hys', units: amount }
@@ -452,7 +452,7 @@ cron.schedule('0 0 * * 1,4', async () => {
         Analyze the user's message. If they express intent to make a transaction or financial change, you MUST extract it into a structured action object.
         The supported action types are:
         1. ADD_MONEY: User wants to add/deposit cash into High-Yield Savings. Payload: { "assetKey": "hys", "units": number }
-        2. WITHDRAW_MONEY: User wants to withdraw cash from HYS. Payload: { "assetKey": "hys", "units": number }
+        2. WITHDRAW_MONEY: User wants to withdraw, deduct, subtract, or reduce cash from HYS (e.g., "deduct 7000 in hys", "withdraw 5000"). Payload: { "assetKey": "hys", "units": number }
         3. RECORD_EXPENSE: User wants to log a spent amount. Payload: { "category": string, "description": string, "amount": number, "currency": "PHP", "date": "YYYY-MM-DD" }
            Valid categories: "Utilities", "Food & Dining", "Travel / Fuel", "Lifestyle", "Other Outflows".
         4. RECORD_TRADE: User wants to BUY or SELL a volatile risk asset. Payload: { "assetKey": "btc" | "paxg" | "manulife" | "rcr" | "scc" | "spc", "action": "BUY" | "SELL", "units": number, "pricePHP": number }
@@ -503,17 +503,17 @@ cron.schedule('0 0 * * 1,4', async () => {
       let action: any = null;
 
       if (lower.includes('add') || lower.includes('deposit')) {
-        const match = lower.match(/(?:add|deposit)\s+₱?([\d,]+)/i);
-        const amount = match ? Number(match[1].replace(/,/g, '')) : 15000;
-        reply += `I detected you want to deposit money. I've prepared an action to deposit ₱${amount.toLocaleString()} into your High-Yield Savings account. Click 'Apply' to execute.`;
+        const match = lower.match(/(?:add|deposit|put|top\s*up)?\s*₱?\s*([\d,]+)/i);
+        const amount = match && match[1] ? Number(match[1].replace(/,/g, '')) : 15000;
+        reply += `I detected you want to deposit money. I've prepared an action to deposit ₱${amount.toLocaleString()} into your High-Yield Savings account. Click 'Approve & Write Entry' to execute.`;
         action = {
           type: 'ADD_MONEY',
           payload: { assetKey: 'hys', units: amount }
         };
-      } else if (lower.includes('withdraw')) {
-        const match = lower.match(/withdraw\s+₱?([\d,]+)/i);
-        const amount = match ? Number(match[1].replace(/,/g, '')) : 5000;
-        reply += `I detected you want to withdraw money. I've prepared an action to withdraw ₱${amount.toLocaleString()} from your High-Yield Savings account. Click 'Apply' to execute.`;
+      } else if (lower.includes('withdraw') || lower.includes('deduct') || lower.includes('subtract') || lower.includes('minus') || lower.includes('reduce') || lower.includes('remove') || lower.includes('take')) {
+        const match = lower.match(/(?:withdraw|deduct|subtract|minus|reduce|remove|take\s*out)?\s*₱?\s*([\d,]+)/i);
+        const amount = match && match[1] ? Number(match[1].replace(/,/g, '')) : 7000;
+        reply += `I detected you want to deduct/withdraw money. I've prepared an action to withdraw ₱${amount.toLocaleString()} from your High-Yield Savings account. Click 'Approve & Write Entry' to execute.`;
         action = {
           type: 'WITHDRAW_MONEY',
           payload: { assetKey: 'hys', units: amount }

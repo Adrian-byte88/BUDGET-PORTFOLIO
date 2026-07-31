@@ -19,7 +19,7 @@ export interface HistoricalTx {
   details: string;
 }
 
-const INITIAL_HISTORICAL_TXS: HistoricalTx[] = [
+export const INITIAL_HISTORICAL_TXS: HistoricalTx[] = [
   { id: 'h-1', date: '2025-12-29', asset: 'Time Deposit', type: 'Buy', amount: '₱60,000.00', details: 'Initial Placement (Accrued).' },
   { id: 'h-2', date: '2025-12-29', asset: 'PAX Gold', type: 'Buy', amount: '₱10,000.00', details: 'Initial commodity hedge.' },
   { id: 'h-3', date: '2025-12-30', asset: 'Bitcoin', type: 'Buy', amount: '₱10,000.00', details: 'Initial GCrypto entry.' },
@@ -51,12 +51,25 @@ const INITIAL_HISTORICAL_TXS: HistoricalTx[] = [
   { id: 'h-29', date: '2026-07-02', asset: 'HYS Savings', type: 'Deposit', amount: '+₱10,000.00', details: 'Salary-based cash injection; Safe Shield consolidation.' }
 ];
 
-export default function TransactionHistoryTab() {
-  const [txs, setTxs] = useState<HistoricalTx[]>(() => {
+export interface TransactionHistoryTabProps {
+  transactions?: HistoricalTx[];
+  onAddTransaction?: (tx: Omit<HistoricalTx, 'id'>) => void;
+  onDeleteTransaction?: (id: string) => void;
+  onResetTransactions?: () => void;
+}
+
+export default function TransactionHistoryTab({
+  transactions: propTransactions,
+  onAddTransaction,
+  onDeleteTransaction,
+  onResetTransactions,
+}: TransactionHistoryTabProps = {}) {
+  const [localTxs, setLocalTxs] = useState<HistoricalTx[]>(() => {
     const saved = localStorage.getItem('historical_transactions_registry');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
         // fallback
       }
@@ -64,9 +77,13 @@ export default function TransactionHistoryTab() {
     return INITIAL_HISTORICAL_TXS;
   });
 
+  const txs = propTransactions !== undefined ? propTransactions : localTxs;
+
   useEffect(() => {
-    localStorage.setItem('historical_transactions_registry', JSON.stringify(txs));
-  }, [txs]);
+    if (!propTransactions) {
+      localStorage.setItem('historical_transactions_registry', JSON.stringify(localTxs));
+    }
+  }, [localTxs, propTransactions]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('All');
@@ -147,16 +164,26 @@ export default function TransactionHistoryTab() {
       formattedAmount = `${sign}₱${numericVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
 
-    const newTx: HistoricalTx = {
-      id: `h-user-${Date.now()}`,
-      date: newDate,
-      asset: newAsset,
-      type: newType,
-      amount: formattedAmount,
-      details: newDetails
-    };
+    if (onAddTransaction) {
+      onAddTransaction({
+        date: newDate,
+        asset: newAsset,
+        type: newType,
+        amount: formattedAmount,
+        details: newDetails
+      });
+    } else {
+      const newTx: HistoricalTx = {
+        id: `h-user-${Date.now()}`,
+        date: newDate,
+        asset: newAsset,
+        type: newType,
+        amount: formattedAmount,
+        details: newDetails
+      };
+      setLocalTxs([newTx, ...localTxs]);
+    }
 
-    setTxs([newTx, ...txs]);
     setNewAsset('');
     setNewAmount('');
     setNewDetails('');
@@ -164,12 +191,20 @@ export default function TransactionHistoryTab() {
   };
 
   const handleDeleteTx = (id: string) => {
-    setTxs(txs.filter(tx => tx.id !== id));
+    if (onDeleteTransaction) {
+      onDeleteTransaction(id);
+    } else {
+      setLocalTxs(localTxs.filter(tx => tx.id !== id));
+    }
   };
 
   const handleResetTxs = () => {
     if (window.confirm('Are you sure you want to reset to default historical transactions?')) {
-      setTxs(INITIAL_HISTORICAL_TXS);
+      if (onResetTransactions) {
+        onResetTransactions();
+      } else {
+        setLocalTxs(INITIAL_HISTORICAL_TXS);
+      }
     }
   };
 

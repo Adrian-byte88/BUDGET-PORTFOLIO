@@ -223,39 +223,6 @@ export default function AssetSleeveTab({
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* AISync control panel */}
-      <div className="bg-gradient-to-r from-blue-50/80 via-white to-transparent dark:from-slate-900/80 dark:via-slate-900/40 dark:to-transparent border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative overflow-hidden shadow-xs">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 blur-3xl rounded-full pointer-events-none" />
-        <div className="max-w-2xl relative z-10">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2.5">
-            <Sparkles className="w-5 h-5 text-blue-600 dark:text-teal-400 animate-pulse" />
-            <span>Grounded Live Market pricing Engine</span>
-          </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-            Consolidate indices with current real-world quotes. Uses Gemini 2.5-Flash with Google Search grounding. Securely bypasses local rate boundaries when you specify your personal key.
-          </p>
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            <input
-              type="password"
-              placeholder="Paste custom Gemini API key (optional)..."
-              value={customKey}
-              onChange={(e) => setCustomKey(e.target.value)}
-              className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-100 rounded-lg px-3.5 py-2 text-xs focus:outline-none focus:border-blue-500 w-64 placeholder:text-slate-400"
-            />
-            <span className="text-[10px] text-slate-400 font-semibold">Key saved browser-locally only</span>
-          </div>
-        </div>
-
-        <button
-          onClick={handleAISyncClick}
-          disabled={syncLoading}
-          className="relative overflow-hidden group shrink-0 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center space-x-2 transition-all duration-300 shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${syncLoading ? 'animate-spin' : ''}`} />
-          <span>{syncLoading ? 'Executing Grounded AI Search...' : 'Consolidate via Gemini AI'}</span>
-        </button>
-      </div>
-
       {/* Manual trade execution form block */}
       {showTradeForm && (
         <form onSubmit={handleTradeSubmit} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-6 rounded-xl space-y-4 shadow-sm animate-slide-down">

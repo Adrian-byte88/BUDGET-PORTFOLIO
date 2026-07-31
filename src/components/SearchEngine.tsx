@@ -59,7 +59,6 @@ const STATIC_INDEX: SearchItem[] = [
   { type: 'Section', name: 'Household Outflow Contribution Breakdown', id: 'family-contribution-section', targetTab: 'social', subtitle: 'Social Section', keywords: 'family contributions member share outflow distribution household' },
 
   // SECTIONS - CYCLE AUDIT & HISTORY & SETTINGS
-  { type: 'Section', name: 'Market Cycle Macroeconomic Analysis', id: 'cycle-audit-section', targetTab: 'audit', subtitle: 'Cycle Audit Section', keywords: 'macro risk economic cycle rebalance recommendation audit positioning' },
   { type: 'Section', name: 'System Audit Trail & Transaction Ledger', id: 'transaction-history-section', targetTab: 'transactions', subtitle: 'History Section', keywords: 'history audit trail system logs trades price updates events' },
   { type: 'Section', name: 'Profile & Identity Settings', id: 'settings-profile', targetTab: 'settings', subtitle: 'Settings Modal', keywords: 'email profile account settings identity user' },
   { type: 'Section', name: 'System Preferences & Dark Mode', id: 'settings-preferences', targetTab: 'settings', subtitle: 'Settings Modal', keywords: 'dark mode theme currency preferences accessibility accessibility' },

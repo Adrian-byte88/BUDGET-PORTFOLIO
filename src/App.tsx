@@ -18,7 +18,7 @@ import LedgerTab from './components/LedgerTab';
 import SocialFamilyHub from './components/SocialFamilyHub';
 import ExportEngine from './components/ExportEngine';
 import MyFinancialPortfolio from './components/MyFinancialPortfolio';
-import TransactionHistoryTab from './components/TransactionHistoryTab';
+import TransactionHistoryTab, { HistoricalTx, INITIAL_HISTORICAL_TXS } from './components/TransactionHistoryTab';
 import MarketCycleAuditTab, {
   CycleItem,
   DevaluationItem,
@@ -51,8 +51,8 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     class: 'safe',
     assetType: 'deposit',
     platform: 'Maya Bank',
-    units: 1,
-    currentPricePHP: 250000,
+    units: 250000,
+    currentPricePHP: 1,
     costBasisPHP: 250000,
     yieldPercent: 5.25,
     yieldFrequency: 'annual',
@@ -65,8 +65,8 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     class: 'safe',
     assetType: 'deposit',
     platform: 'BDO Trust / Bureau of Treasury',
-    units: 1,
-    currentPricePHP: 150000,
+    units: 150000,
+    currentPricePHP: 1,
     costBasisPHP: 150000,
     yieldPercent: 5.75,
     yieldFrequency: 'annual',
@@ -222,6 +222,52 @@ export default function App() {
     return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
   });
 
+  const [transactions, setTransactions] = useState<HistoricalTx[]>(() => {
+    const saved = localStorage.getItem('historical_transactions_registry');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_HISTORICAL_TXS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('historical_transactions_registry', JSON.stringify(transactions));
+  }, [transactions]);
+
+  const handleAddTransaction = (newTxData: Omit<HistoricalTx, 'id'>) => {
+    const newTx: HistoricalTx = {
+      ...newTxData,
+      id: `h-user-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
+    setTransactions((prev) => {
+      const nextTxs = [newTx, ...prev];
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { transactions: nextTxs }, { merge: true }).catch(console.error);
+      }
+      return nextTxs;
+    });
+  };
+
+  const handleDeleteTransaction = (id: string) => {
+    setTransactions((prev) => {
+      const nextTxs = prev.filter((t) => t.id !== id);
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { transactions: nextTxs }, { merge: true }).catch(console.error);
+      }
+      return nextTxs;
+    });
+  };
+
+  const handleResetTransactions = () => {
+    setTransactions(INITIAL_HISTORICAL_TXS);
+    if (email) {
+      setDoc(doc(db, "users", email, "financialData", "data"), { transactions: INITIAL_HISTORICAL_TXS }, { merge: true }).catch(console.error);
+    }
+  };
+
   const isInitialized = React.useRef(false);
   const isRemoteUpdate = React.useRef(false);
 
@@ -345,6 +391,11 @@ export default function App() {
         if (data.budgetCap) {
           setBudgetCap(data.budgetCap);
           localStorage.setItem('portfolio_budget_cap', data.budgetCap);
+        }
+
+        if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
+          setTransactions(data.transactions);
+          localStorage.setItem('historical_transactions_registry', JSON.stringify(data.transactions));
         }
 
         if (loadedAssets && loadedAssets.length > 0) {
@@ -659,17 +710,35 @@ export default function App() {
       const { type, payload } = action;
       if (type === 'ADD_MONEY' || type === 'WITHDRAW_MONEY') {
         const isDeposit = type === 'ADD_MONEY';
-        setAssets((prev) =>
-          prev.map((a) => {
-            if (a.key === payload.assetKey || (payload.assetKey === 'hys' && a.key === 'hys')) {
-              const diff = isDeposit ? payload.units : -payload.units;
+        const units = Number(payload.units) || 0;
+        const assetKey = payload.assetKey || 'hys';
+        const targetAsset = assets.find((a) => a.key === assetKey || (assetKey === 'hys' && a.key === 'hys'));
+        const assetName = targetAsset ? targetAsset.name : 'High-Yield Savings (HYS)';
+
+        setAssets((prev) => {
+          const nextAssets = prev.map((a) => {
+            if (a.key === assetKey || (assetKey === 'hys' && a.key === 'hys')) {
+              const diff = isDeposit ? units : -units;
               const newUnits = Math.max(0, a.units + diff);
               return { ...a, units: newUnits };
             }
             return a;
-          })
-        );
-        triggerToast('Asset Balance Updated', `${isDeposit ? 'Deposited' : 'Withdrew'} ₱${payload.units.toLocaleString()} in HYS.`, 'success');
+          });
+          if (email) {
+            setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
+          }
+          return nextAssets;
+        });
+
+        handleAddTransaction({
+          date: new Date().toISOString().split('T')[0],
+          asset: assetName,
+          type: isDeposit ? 'Deposit' : 'Withdraw',
+          amount: `${isDeposit ? '+' : '-'}₱${units.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          details: `AI Assistant ${isDeposit ? 'Deposit' : 'Withdrawal'} in ${assetName}`
+        });
+
+        triggerToast('Asset Balance Updated', `${isDeposit ? 'Deposited' : 'Withdrew'} ₱${units.toLocaleString()} in HYS.`, 'success');
       } else if (type === 'RECORD_EXPENSE') {
         handleAddExpense({
           category: payload.category || 'Lifestyle',
@@ -754,6 +823,14 @@ export default function App() {
 
     setExpenses((prev) => [newEntry, ...prev]);
 
+    handleAddTransaction({
+      date: expense.date || new Date().toISOString().split('T')[0],
+      asset: `Expense: ${expense.category}`,
+      type: 'Withdraw',
+      amount: `-₱${expense.amountPHP.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      details: expense.description || `${expense.category} outflow entry`
+    });
+
     triggerToast('Outflow Entry committed', `Logged ₱${expense.amountPHP.toLocaleString()} under ${expense.category}`, 'success');
   };
 
@@ -788,8 +865,8 @@ export default function App() {
     setTrades((prev) => [newTrade, ...prev]);
 
     // Adjust specific units/cost Basis ratios on the target asset position
-    setAssets((prevAssets) =>
-      prevAssets.map((asset) => {
+    setAssets((prevAssets) => {
+      const nextAssets = prevAssets.map((asset) => {
         if (asset.key === trade.assetKey) {
           const isBuy = trade.action === 'BUY';
           const newUnits = isBuy ? asset.units + trade.units : Math.max(asset.units - trade.units, 0);
@@ -802,8 +879,21 @@ export default function App() {
           };
         }
         return asset;
-      })
-    );
+      });
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
+      }
+      return nextAssets;
+    });
+
+    const isBuy = trade.action === 'BUY';
+    handleAddTransaction({
+      date: trade.date || new Date().toISOString().split('T')[0],
+      asset: trade.assetName,
+      type: isBuy ? 'Buy' : 'Sell',
+      amount: `${isBuy ? '+' : '-'}₱${trade.amountPHP.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      details: trade.notes || `${trade.action} trade execution (${trade.units} units @ ₱${trade.pricePHP.toLocaleString()})`
+    });
 
     triggerToast('Trade Commited', `Successfully recorded offline ${trade.action} of ${trade.units} units.`, 'success');
   };
@@ -823,8 +913,12 @@ export default function App() {
       assetType?: 'cash' | 'deposit' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
     }
   ) => {
-    setAssets((prev) =>
-      prev.map((a) => (a.key === key ? { 
+    const existingAsset = assets.find((a) => a.key === key);
+    const oldUnits = existingAsset ? existingAsset.units : 0;
+    const diffUnits = units - oldUnits;
+
+    setAssets((prev) => {
+      const nextAssets = prev.map((a) => (a.key === key ? { 
         ...a, 
         units, 
         costBasisPHP: cost,
@@ -835,8 +929,34 @@ export default function App() {
         ...(details?.yieldPercent !== undefined && { yieldPercent: details.yieldPercent }),
         ...(details?.yieldFrequency !== undefined && { yieldFrequency: details.yieldFrequency }),
         ...(details?.withholdingTaxPercent !== undefined && { withholdingTaxPercent: details.withholdingTaxPercent })
-      } : a))
-    );
+      } : a));
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
+      }
+      return nextAssets;
+    });
+
+    if (existingAsset && diffUnits !== 0) {
+      const price = existingAsset.currentPricePHP || 1;
+      const absDiff = Math.abs(diffUnits);
+      const totalDiffPHP = absDiff * price;
+      const isIncrease = diffUnits > 0;
+      const isCashOrDeposit = existingAsset.key === 'hys' || existingAsset.assetType === 'cash' || existingAsset.assetType === 'deposit';
+
+      const txType = isCashOrDeposit 
+        ? (isIncrease ? 'Deposit' : 'Withdraw') 
+        : (isIncrease ? 'Buy' : 'Sell');
+
+      const formattedAmount = `${isIncrease ? '+' : '-'}₱${totalDiffPHP.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      handleAddTransaction({
+        date: new Date().toISOString().split('T')[0],
+        asset: existingAsset.name,
+        type: txType,
+        amount: formattedAmount,
+        details: `Holdings balance adjustment (${isIncrease ? 'Added' : 'Reduced'} ${absDiff.toLocaleString()} units)`
+      });
+    }
   };
 
   // Custom asset pricing override
@@ -852,7 +972,24 @@ export default function App() {
       triggerToast('Asset ID Collision', `An asset with key "${newAsset.key}" already exists in index registries.`, 'error');
       return;
     }
-    setAssets((prev) => [...prev, newAsset]);
+    setAssets((prev) => {
+      const nextAssets = [...prev, newAsset];
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
+      }
+      return nextAssets;
+    });
+
+    const totalVal = newAsset.units * (newAsset.currentPricePHP || 1);
+    const isCashOrDeposit = newAsset.key === 'hys' || newAsset.assetType === 'cash' || newAsset.assetType === 'deposit';
+    handleAddTransaction({
+      date: new Date().toISOString().split('T')[0],
+      asset: newAsset.name,
+      type: isCashOrDeposit ? 'Deposit' : 'Buy',
+      amount: `+₱${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      details: `New asset position registered (${newAsset.units.toLocaleString()} units)`
+    });
+
     triggerToast('Asset Position Added', `Successfully registered "${newAsset.name}" to asset tables.`, 'success');
   };
 
@@ -1204,6 +1341,10 @@ export default function App() {
             budgetCap={budgetCap}
             onUpdateBudgetCap={setBudgetCap}
             onTriggerPopupModal={triggerPopupModal}
+            transactions={transactions}
+            onAddTransaction={handleAddTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
+            onResetTransactions={handleResetTransactions}
           />
         )}
 
@@ -1276,7 +1417,12 @@ export default function App() {
         )}
 
         {activeTab === 'transactions' && (
-          <TransactionHistoryTab />
+          <TransactionHistoryTab
+            transactions={transactions}
+            onAddTransaction={handleAddTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
+            onResetTransactions={handleResetTransactions}
+          />
         )}
 
       </main>
