@@ -31,6 +31,7 @@ import MarketCycleAuditTab, {
 } from './components/MarketCycleAuditTab';
 import SettingsModal from './components/SettingsModal';
 import PhilippineClock from './components/PhilippineClock';
+import { AIPopupModal } from './components/AIPopupModal';
 import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check } from 'lucide-react';
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 
@@ -230,6 +231,24 @@ export default function App() {
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<'profile' | 'preferences' | 'export'>('profile');
   const [highlightId, setHighlightId] = useState<{type: string, id: string, tab?: string} | null>(null);
   const [toast, setToast] = useState<{ title: string; desc: string; type: 'success' | 'warning' | 'error' } | null>(null);
+  const [popupModal, setPopupModal] = useState<{
+    isOpen: boolean;
+    type: 'quota' | 'search_grounding' | null;
+    title?: string;
+    message?: string;
+  }>({
+    isOpen: false,
+    type: null,
+  });
+
+  const triggerPopupModal = (type: 'quota' | 'search_grounding', title?: string, message?: string) => {
+    setPopupModal({
+      isOpen: true,
+      type,
+      title,
+      message,
+    });
+  };
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -595,6 +614,21 @@ export default function App() {
       });
 
       const data = await response.json();
+
+      if (data.quotaExceeded) {
+        triggerPopupModal(
+          'quota',
+          'Gemini API Quota Limit Reached',
+          'The AI Assistant encountered a rate quota limit (429). Operating with offline intent shortcuts.'
+        );
+      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding') {
+        triggerPopupModal(
+          'search_grounding',
+          'Search Grounding Assistant Response',
+          'AI Assistant generated this response with Google Search Grounding verification!'
+        );
+      }
+
       if (data.success) {
         setMessages((prev) => [...prev, {
           id: `msg-ai-${Date.now()}`,
@@ -943,6 +977,22 @@ export default function App() {
       });
       const data = await res.json();
 
+      if (data.quotaExceeded) {
+        triggerPopupModal(
+          'quota',
+          'Gemini API Quota Limit Reached',
+          'Your Gemini API key or request quota limit has been reached. Live market pricing fell back to cached rates.'
+        );
+        triggerToast('Quota Limit Reached', 'Loaded cached live market prices.', 'error');
+      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding') {
+        triggerPopupModal(
+          'search_grounding',
+          'Search Grounding Successful',
+          'Google Search Grounding successfully retrieved live 2026 market prices for USD/PHP, BTC, PAXG, SCC, SPC, RCR, and Manulife REIT!'
+        );
+        triggerToast('Search Grounding Successful', 'Latest PSE shares and commodity pricing verified via Google Search Grounding.', 'success');
+      }
+
       if (data.success && data.prices) {
         const prices = data.prices;
         setExchangeRates((prev) => ({
@@ -1071,6 +1121,15 @@ export default function App() {
         </div>
       )}
 
+      {/* AIPopupModal for Quota and Search Grounding Popups */}
+      <AIPopupModal
+        isOpen={popupModal.isOpen}
+        type={popupModal.type}
+        title={popupModal.title}
+        message={popupModal.message}
+        onClose={() => setPopupModal((prev) => ({ ...prev, isOpen: false }))}
+      />
+
       {/* Tab Navigations */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
@@ -1144,6 +1203,7 @@ export default function App() {
             onUpdateDeploymentItems={setDeploymentItems}
             budgetCap={budgetCap}
             onUpdateBudgetCap={setBudgetCap}
+            onTriggerPopupModal={triggerPopupModal}
           />
         )}
 
@@ -1211,6 +1271,7 @@ export default function App() {
             onUpdateDeploymentItems={setDeploymentItems}
             budgetCap={budgetCap}
             onUpdateBudgetCap={setBudgetCap}
+            onTriggerPopupModal={triggerPopupModal}
           />
         )}
 

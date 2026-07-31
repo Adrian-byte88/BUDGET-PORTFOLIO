@@ -13,6 +13,7 @@ import {
   CartesianGrid
 } from 'recharts';
 import { AssetPosition, MarketAlert } from '../types';
+import { AIPopupModal } from './AIPopupModal';
 import { getAssetValuation, formatTimeAgo } from '../lib/formatters';
 import SmartCalculatorInput from './SmartCalculatorInput';
 import {
@@ -160,6 +161,7 @@ interface MyFinancialPortfolioProps {
   onUpdateDeploymentItems?: (items: DeploymentPlanItem[]) => void;
   budgetCap?: string;
   onUpdateBudgetCap?: (cap: string) => void;
+  onTriggerPopupModal?: (type: 'quota' | 'search_grounding', title?: string, message?: string) => void;
 }
 
 export default function MyFinancialPortfolio({
@@ -179,10 +181,15 @@ export default function MyFinancialPortfolio({
   onUpdateDeploymentItems,
   budgetCap: propBudgetCap,
   onUpdateBudgetCap,
+  onTriggerPopupModal,
 }: MyFinancialPortfolioProps) {
   // --- AI AND LOCAL TOAST STATES ---
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [popupState, setPopupState] = useState<{ isOpen: boolean; type: 'quota' | 'search_grounding' | null; title?: string; message?: string }>({
+    isOpen: false,
+    type: null,
+  });
 
   const triggerLocalToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setLocalToast({ message, type });
@@ -199,12 +206,46 @@ export default function MyFinancialPortfolio({
         body: JSON.stringify({}),
       });
       const data = await response.json();
+
+      if (data.quotaExceeded) {
+        if (onTriggerPopupModal) {
+          onTriggerPopupModal(
+            'quota',
+            'Gemini API Quota Limit Reached',
+            'Portfolio sentiment models hit request rate limits. The application seamlessly engaged cached offline market models.'
+          );
+        } else {
+          setPopupState({
+            isOpen: true,
+            type: 'quota',
+            title: 'Gemini API Quota Limit Reached',
+            message: 'Portfolio sentiment models hit request rate limits. The application seamlessly engaged cached offline market models.'
+          });
+        }
+        triggerLocalToast('⚠️ Quota Limit Reached: Loaded offline sentiment models.', 'error');
+      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding') {
+        if (onTriggerPopupModal) {
+          onTriggerPopupModal(
+            'search_grounding',
+            'Search Grounding Successful',
+            'Google Search Grounding successfully verified live asset sentiments and Philippine macro market indicators!'
+          );
+        } else {
+          setPopupState({
+            isOpen: true,
+            type: 'search_grounding',
+            title: 'Search Grounding Successful',
+            message: 'Google Search Grounding successfully verified live asset sentiments and Philippine macro market indicators!'
+          });
+        }
+        triggerLocalToast('✨ Portfolio sentiments auto-updated via Search Grounding!', 'success');
+      }
+
       if (data.success) {
         if (data.cycleItems) setCycleItems(data.cycleItems);
         if (data.devaluationItems) setDevaluationItems(data.devaluationItems);
         if (data.deploymentItems) setDeploymentItems(data.deploymentItems);
         if (data.auditChanges) setAuditChanges(data.auditChanges);
-        triggerLocalToast('✨ Portfolio sentiments auto-updated successfully!', 'success');
       } else {
         triggerLocalToast(`⚠️ Update failed: ${data.error || 'Unknown error'}`, 'error');
       }
@@ -233,133 +274,99 @@ export default function MyFinancialPortfolio({
   }, [txs]);
 
   // --- 4. CYCLE ITEMS STATE ---
-  const [cycleItems, setCycleItemsState] = useState<CycleItem[]>(() => {
-    if (propCycleItems && propCycleItems.length > 0) return propCycleItems;
+  const [localCycleItems, setLocalCycleItems] = useState<CycleItem[]>(() => {
     const saved = localStorage.getItem('portfolio_cycle_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_CYCLE_ITEMS;
   });
+  const cycleItems = (propCycleItems && propCycleItems.length > 0) ? propCycleItems : localCycleItems;
   const [isEditingCycle, setIsEditingCycle] = useState(false);
 
-  useEffect(() => {
-    if (propCycleItems && propCycleItems.length > 0) setCycleItemsState(propCycleItems);
-  }, [propCycleItems]);
-
   const setCycleItems = (val: CycleItem[] | ((prev: CycleItem[]) => CycleItem[])) => {
-    setCycleItemsState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      localStorage.setItem('portfolio_cycle_items', JSON.stringify(next));
-      setTimeout(() => onUpdateCycleItems?.(next), 0);
-      return next;
-    });
+    const next = typeof val === 'function' ? val(cycleItems) : val;
+    localStorage.setItem('portfolio_cycle_items', JSON.stringify(next));
+    setLocalCycleItems(next);
+    onUpdateCycleItems?.(next);
   };
 
   // --- 5. DEPLOYMENT PLAN STATE ---
-  const [deploymentItems, setDeploymentItemsState] = useState<DeploymentPlanItem[]>(() => {
-    if (propDeploymentItems && propDeploymentItems.length > 0) return propDeploymentItems;
+  const [localDeploymentItems, setLocalDeploymentItems] = useState<DeploymentPlanItem[]>(() => {
     const saved = localStorage.getItem('portfolio_deployment_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_DEPLOYMENT_ITEMS;
   });
-  const [budgetCap, setBudgetCapState] = useState(() => {
-    if (propBudgetCap) return propBudgetCap;
+  const deploymentItems = (propDeploymentItems && propDeploymentItems.length > 0) ? propDeploymentItems : localDeploymentItems;
+
+  const [localBudgetCap, setLocalBudgetCap] = useState(() => {
     return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
   });
+  const budgetCap = propBudgetCap || localBudgetCap;
   const [isEditingDeployment, setIsEditingDeployment] = useState(false);
 
-  useEffect(() => {
-    if (propDeploymentItems && propDeploymentItems.length > 0) setDeploymentItemsState(propDeploymentItems);
-  }, [propDeploymentItems]);
-
-  useEffect(() => {
-    if (propBudgetCap) setBudgetCapState(propBudgetCap);
-  }, [propBudgetCap]);
-
   const setDeploymentItems = (val: DeploymentPlanItem[] | ((prev: DeploymentPlanItem[]) => DeploymentPlanItem[])) => {
-    setDeploymentItemsState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      localStorage.setItem('portfolio_deployment_items', JSON.stringify(next));
-      setTimeout(() => onUpdateDeploymentItems?.(next), 0);
-      return next;
-    });
+    const next = typeof val === 'function' ? val(deploymentItems) : val;
+    localStorage.setItem('portfolio_deployment_items', JSON.stringify(next));
+    setLocalDeploymentItems(next);
+    onUpdateDeploymentItems?.(next);
   };
 
   const setBudgetCap = (val: string | ((prev: string) => string)) => {
-    setBudgetCapState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      localStorage.setItem('portfolio_budget_cap', next);
-      setTimeout(() => onUpdateBudgetCap?.(next), 0);
-      return next;
-    });
+    const next = typeof val === 'function' ? val(budgetCap) : val;
+    localStorage.setItem('portfolio_budget_cap', next);
+    setLocalBudgetCap(next);
+    onUpdateBudgetCap?.(next);
   };
 
   // --- 7. CURRENCY DEVALUATION STATE ---
-  const [devaluationItems, setDevaluationItemsState] = useState<DevaluationItem[]>(() => {
-    if (propDevaluationItems && propDevaluationItems.length > 0) return propDevaluationItems;
+  const [localDevaluationItems, setLocalDevaluationItems] = useState<DevaluationItem[]>(() => {
     const saved = localStorage.getItem('portfolio_devaluation_items');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_DEVALUATION_ITEMS;
   });
-  const [devaluationTactics, setDevaluationTacticsState] = useState(() => {
-    if (propDevaluationTactics) return propDevaluationTactics;
+  const devaluationItems = (propDevaluationItems && propDevaluationItems.length > 0) ? propDevaluationItems : localDevaluationItems;
+
+  const [localDevaluationTactics, setLocalDevaluationTactics] = useState(() => {
     return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
   });
+  const devaluationTactics = propDevaluationTactics || localDevaluationTactics;
   const [isEditingDevaluation, setIsEditingDevaluation] = useState(false);
 
-  useEffect(() => {
-    if (propDevaluationItems && propDevaluationItems.length > 0) setDevaluationItemsState(propDevaluationItems);
-  }, [propDevaluationItems]);
-
-  useEffect(() => {
-    if (propDevaluationTactics) setDevaluationTacticsState(propDevaluationTactics);
-  }, [propDevaluationTactics]);
-
   const setDevaluationItems = (val: DevaluationItem[] | ((prev: DevaluationItem[]) => DevaluationItem[])) => {
-    setDevaluationItemsState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      localStorage.setItem('portfolio_devaluation_items', JSON.stringify(next));
-      setTimeout(() => onUpdateDevaluationItems?.(next), 0);
-      return next;
-    });
+    const next = typeof val === 'function' ? val(devaluationItems) : val;
+    localStorage.setItem('portfolio_devaluation_items', JSON.stringify(next));
+    setLocalDevaluationItems(next);
+    onUpdateDevaluationItems?.(next);
   };
 
   const setDevaluationTactics = (val: string | ((prev: string) => string)) => {
-    setDevaluationTacticsState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      localStorage.setItem('portfolio_devaluation_tactics', next);
-      setTimeout(() => onUpdateDevaluationTactics?.(next), 0);
-      return next;
-    });
+    const next = typeof val === 'function' ? val(devaluationTactics) : val;
+    localStorage.setItem('portfolio_devaluation_tactics', next);
+    setLocalDevaluationTactics(next);
+    onUpdateDevaluationTactics?.(next);
   };
 
   // --- 9. WHAT CHANGED SINCE LAST AUDIT STATE ---
-  const [auditChanges, setAuditChangesState] = useState<AuditChangeItem[]>(() => {
-    if (propAuditChanges && propAuditChanges.length > 0) return propAuditChanges;
+  const [localAuditChanges, setLocalAuditChanges] = useState<AuditChangeItem[]>(() => {
     const saved = localStorage.getItem('portfolio_audit_changes');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
     return INITIAL_AUDIT_CHANGES;
   });
+  const auditChanges = (propAuditChanges && propAuditChanges.length > 0) ? propAuditChanges : localAuditChanges;
   const [isEditingAudit, setIsEditingAudit] = useState(false);
 
-  useEffect(() => {
-    if (propAuditChanges && propAuditChanges.length > 0) setAuditChangesState(propAuditChanges);
-  }, [propAuditChanges]);
-
   const setAuditChanges = (val: AuditChangeItem[] | ((prev: AuditChangeItem[]) => AuditChangeItem[])) => {
-    setAuditChangesState((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      localStorage.setItem('portfolio_audit_changes', JSON.stringify(next));
-      setTimeout(() => onUpdateAuditChanges?.(next), 0);
-      return next;
-    });
+    const next = typeof val === 'function' ? val(auditChanges) : val;
+    localStorage.setItem('portfolio_audit_changes', JSON.stringify(next));
+    setLocalAuditChanges(next);
+    onUpdateAuditChanges?.(next);
   };
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -1193,6 +1200,13 @@ export default function MyFinancialPortfolio({
         </div>
       )}
 
+      <AIPopupModal
+        isOpen={popupState.isOpen}
+        type={popupState.type}
+        title={popupState.title}
+        message={popupState.message}
+        onClose={() => setPopupState((p) => ({ ...p, isOpen: false }))}
+      />
     </div>
   );
 }

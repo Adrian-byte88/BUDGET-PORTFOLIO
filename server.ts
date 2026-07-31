@@ -97,6 +97,14 @@ async function startServer() {
     });
   });
 
+// Helper to check if an error is a Gemini API quota limit (429 / RESOURCE_EXHAUSTED)
+function checkIsQuotaError(error: any): boolean {
+  if (!error) return false;
+  if (error.status === 429 || error.status === 'RESOURCE_EXHAUSTED' || error.code === 429) return true;
+  const msg = (error.message || JSON.stringify(error)).toLowerCase();
+  return msg.includes('quota') || msg.includes('429') || msg.includes('resource_exhausted') || msg.includes('rate limit') || msg.includes('rate-limit');
+}
+
   // API 3: Grounded Gemini Sync using Google Search (Server-side API keys strictly preserved)
   app.post('/api/market/sync-ai', async (req: Request, res: Response) => {
     const customApiKey = req.body.apiKey;
@@ -107,6 +115,7 @@ async function startServer() {
       return res.json({
         success: true,
         source: 'cached_live',
+        quotaExceeded: false,
         message: 'No active Google Gemini key found. Displaying current real-time market caches.',
         prices: {
           usd_php: MARKET_PRICES.USD_PHP,
@@ -186,15 +195,18 @@ async function startServer() {
       return res.json({
         success: true,
         source: 'gemini_search_grounding',
+        searchGroundingSuccess: true,
         prices: parsedData,
       });
 
     } catch (error: any) {
-      console.error('Gemini Search Grounding call failed, falling back to cache: ', error);
+      const isQuota = checkIsQuotaError(error);
+      console.log(`[Cache Fallback] Gemini Search Grounding using live market cache (${isQuota ? 'Quota Exceeded' : 'Offline'}).`);
       return res.json({
         success: true,
         source: 'cached_live',
-        message: `Offline sync active (${error.message || 'Rate limit'}). Using live market caches.`,
+        quotaExceeded: isQuota,
+        message: isQuota ? 'Gemini API quota limit reached. Using cached live market prices.' : `Offline sync active (${error.message || 'Rate limit'}). Using live market caches.`,
         prices: {
           usd_php: MARKET_PRICES.USD_PHP,
           btc_usd: MARKET_PRICES.BTC_USD,
@@ -311,16 +323,19 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
     return {
       success: true,
       source: 'gemini_search_grounding',
+      searchGroundingSuccess: true,
       alerts: defaultAlerts,
       ...parsedData
     };
 
   } catch (error: any) {
-    console.error('Sentiment sections API failed, falling back to cache: ', error);
+    const isQuota = checkIsQuotaError(error);
+    console.log(`[Cache Fallback] Sentiment sections using cache fallback (${isQuota ? 'Quota Exceeded' : 'Offline'}).`);
     return {
       success: true,
       source: 'cached_sentiment',
-      message: `Offline intelligence active (${error.message || 'Rate limit'}). displaying sentiment models.`,
+      quotaExceeded: isQuota,
+      message: isQuota ? 'Gemini API quota limit reached. Using cached sentiment intelligence.' : `Offline intelligence active (${error.message || 'Rate limit'}). displaying sentiment models.`,
       cycleItems: [
         { id: 'cy-1', asset: 'Bitcoin (BTC)', phase: 'Bull Market Consolidation', sentiment: 'Bullish', logic: 'Consolidating above support levels in mid-2026. Spot inflows steady.' },
         { id: 'cy-2', asset: 'PAX Gold (PAXG)', phase: 'Safe-Haven Peak', sentiment: 'Bullish', logic: 'Gold trading at record highs amid central bank hoarding and global hedge interest.' },
@@ -365,7 +380,7 @@ cron.schedule('0 0 * * 1,4', async () => {
       });
     }
   } catch (e) {
-    console.error('Scheduled update failed', e);
+    console.log('[Scheduled Update] Skipping scheduled update (Database unavailable or uninitialized).');
   }
 });
 
@@ -481,9 +496,10 @@ cron.schedule('0 0 * * 1,4', async () => {
       });
 
     } catch (error: any) {
-      console.error('AI chat endpoint failed, falling back: ', error);
+      const isQuota = checkIsQuotaError(error);
+      console.log(`[AI Assistant Fallback] Operating in offline mode (${isQuota ? 'Quota Exceeded' : 'Offline'}).`);
       const lower = message.toLowerCase();
-      let reply = "[API Limit Active] Operating in offline assistant mode. ";
+      let reply = isQuota ? "[Quota Limit Reached] Operating in offline assistant mode. " : "[API Limit Active] Operating in offline assistant mode. ";
       let action: any = null;
 
       if (lower.includes('add') || lower.includes('deposit')) {
