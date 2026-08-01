@@ -954,7 +954,9 @@ export default function App() {
   ) => {
     const existingAsset = assets.find((a) => a.key === key);
     const oldUnits = existingAsset ? existingAsset.units : 0;
+    const oldCost = existingAsset ? existingAsset.costBasisPHP : 0;
     const diffUnits = units - oldUnits;
+    const diffCost = cost - oldCost;
 
     setAssets((prev) => {
       const nextAssets = prev.map((a) => (a.key === key ? { 
@@ -975,34 +977,91 @@ export default function App() {
       return nextAssets;
     });
 
-    if (existingAsset && diffUnits !== 0) {
+    if (existingAsset && (diffUnits !== 0 || diffCost !== 0)) {
       const price = existingAsset.currentPricePHP || 1;
-      const absDiff = Math.abs(diffUnits);
-      const totalDiffPHP = absDiff * price;
-      const isIncrease = diffUnits > 0;
-      const isCashOrDeposit = existingAsset.key === 'hys' || existingAsset.assetType === 'cash' || existingAsset.assetType === 'deposit';
+      const absDiffUnits = Math.abs(diffUnits);
+      const isIncrease = diffUnits !== 0 ? diffUnits > 0 : diffCost > 0;
+      const isCashOrDeposit = existingAsset.key === 'hys' || existingAsset.assetType === 'cash' || existingAsset.assetType === 'deposit' || existingAsset.class === 'safe';
 
       const txType = isCashOrDeposit 
         ? (isIncrease ? 'Deposit' : 'Withdraw') 
         : (isIncrease ? 'Buy' : 'Sell');
 
-      const formattedAmount = `${isIncrease ? '+' : '-'}₱${totalDiffPHP.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const amountVal = diffUnits !== 0 ? absDiffUnits * price : Math.abs(diffCost);
+      const formattedAmount = `${isIncrease ? '+' : '-'}₱${amountVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      const detailParts: string[] = [];
+      if (diffUnits !== 0) {
+        detailParts.push(`Units ${oldUnits.toLocaleString()} → ${units.toLocaleString()} (${diffUnits > 0 ? '+' : ''}${diffUnits.toLocaleString()})`);
+      }
+      if (diffCost !== 0) {
+        detailParts.push(`Cost Basis ₱${oldCost.toLocaleString()} → ₱${cost.toLocaleString()}`);
+      }
 
       handleAddTransaction({
         date: new Date().toISOString().split('T')[0],
         asset: existingAsset.name,
         type: txType,
         amount: formattedAmount,
-        details: `Holdings balance adjustment (${isIncrease ? 'Added' : 'Reduced'} ${absDiff.toLocaleString()} units)`
+        details: `Holdings calibration: ${detailParts.join(', ')}`
       });
     }
   };
 
   // Custom asset pricing override
   const handleUpdateAssetPrice = (key: string, newPrice: number) => {
-    setAssets((prev) =>
-      prev.map((a) => (a.key === key ? { ...a, currentPricePHP: newPrice } : a))
-    );
+    const existingAsset = assets.find((a) => a.key === key);
+    if (existingAsset && existingAsset.currentPricePHP !== newPrice) {
+      const oldPrice = existingAsset.currentPricePHP || 0;
+      const priceDiff = newPrice - oldPrice;
+      const valDiff = priceDiff * existingAsset.units;
+      const pctChange = oldPrice > 0 ? ((newPrice - oldPrice) / oldPrice) * 100 : 0;
+
+      const formattedAmount = `${valDiff >= 0 ? '+' : '-'}₱${Math.abs(valDiff).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      handleAddTransaction({
+        date: new Date().toISOString().split('T')[0],
+        asset: existingAsset.name,
+        type: 'Valuation',
+        amount: formattedAmount,
+        details: `Price revaluation: ₱${oldPrice.toLocaleString()} → ₱${newPrice.toLocaleString()} (${priceDiff >= 0 ? '+' : ''}${pctChange.toFixed(2)}%)`
+      });
+    }
+
+    setAssets((prev) => {
+      const nextAssets = prev.map((a) => (a.key === key ? { ...a, currentPricePHP: newPrice } : a));
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
+      }
+      return nextAssets;
+    });
+  };
+
+  // Delete asset position
+  const handleDeleteAsset = (key: string) => {
+    const target = assets.find((a) => a.key === key);
+    if (!target) return;
+
+    setAssets((prev) => {
+      const nextAssets = prev.filter((a) => a.key !== key);
+      if (email) {
+        setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
+      }
+      return nextAssets;
+    });
+
+    const totalVal = target.units * (target.currentPricePHP || 1);
+    const isCashOrDeposit = target.key === 'hys' || target.assetType === 'cash' || target.assetType === 'deposit' || target.class === 'safe';
+
+    handleAddTransaction({
+      date: new Date().toISOString().split('T')[0],
+      asset: target.name,
+      type: isCashOrDeposit ? 'Withdraw' : 'Sell',
+      amount: `-₱${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      details: `Asset position removed from active portfolio (${target.units.toLocaleString()} units)`
+    });
+
+    triggerToast('Asset Position Removed', `Removed "${target.name}" from active portfolio.`, 'warning');
   };
 
   // Add new asset position
@@ -1392,6 +1451,7 @@ export default function App() {
             assets={assets}
             onUpdateAssetPrice={handleUpdateAssetPrice}
             onUpdateAssetHoldings={handleUpdateAssetHoldings}
+            onDeleteAsset={handleDeleteAsset}
             onAddTrade={handleAddTrade}
             targetAllocation={targetAllocation}
             onUpdateTargetAllocation={setTargetAllocation}

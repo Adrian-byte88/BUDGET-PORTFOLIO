@@ -21,6 +21,7 @@ interface AssetSleeveTabProps {
       assetType?: 'cash' | 'deposit' | 'hys' | 'crypto' | 'commodity' | 'equity' | 'property' | 'liability';
     }
   ) => void;
+  onDeleteAsset?: (key: string) => void;
   onAddTrade: (trade: Omit<TradeEntry, 'id'>) => void;
   targetAllocation: number;
   onUpdateTargetAllocation: (val: number) => void;
@@ -37,6 +38,7 @@ export default function AssetSleeveTab({
   assets,
   onUpdateAssetPrice,
   onUpdateAssetHoldings,
+  onDeleteAsset,
   onAddTrade,
   targetAllocation,
   onUpdateTargetAllocation,
@@ -681,20 +683,37 @@ export default function AssetSleeveTab({
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3.5 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditingAsset(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase"
-                >
-                  Commit Holdings Calibration
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
+                {onDeleteAsset && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to remove "${editingAsset.name}" from your active portfolio?`)) {
+                        onDeleteAsset(editingAsset.key);
+                        setEditingAsset(null);
+                      }
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Position</span>
+                  </button>
+                )}
+                <div className="flex items-center space-x-3.5 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setEditingAsset(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase cursor-pointer"
+                  >
+                    Commit Holdings Calibration
+                  </button>
+                </div>
               </div>
             </form>
           </div>
