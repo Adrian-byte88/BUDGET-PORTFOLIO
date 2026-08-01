@@ -120,12 +120,14 @@ export function buildCycleItemsFromAssets(assetsList: AssetPosition[], totalVal:
 }
 
 export const INITIAL_DEVALUATION_ITEMS: DevaluationItem[] = [
-  { id: 'dv-1', indicator: 'USD/PHP Rate', marketRef: '₱61.62 (up from ₱61.42)', portfolioExposure: '15.00% (Risk Sleeve)', hedgeStatus: 'SECURE (USD-proxy assets hedge PHP volatility)', statusType: 'SECURE' },
-  { id: 'dv-2', indicator: 'PH Inflation', marketRef: '6.4% (June 2026, PSA)', portfolioExposure: '85.00% (Safe Shield)', hedgeStatus: 'UNDER-YIELDING (6.4% inflation exceeds bank rates)', statusType: 'UNDER-YIELDING' }
+  { id: 'dv-1', indicator: 'USD/PHP FX Benchmark', marketRef: '₱58.25 (BSP Market Ref)', portfolioExposure: '15.00% (Risk Sleeve)', hedgeStatus: 'SECURE (USD assets act as natural hedge against PHP weakness)', statusType: 'SECURE' },
+  { id: 'dv-2', indicator: 'PH Inflation (PSA CPI)', marketRef: '3.4% Baseline', portfolioExposure: '85.00% (Safe Shield)', hedgeStatus: 'SECURE (High-Yield Maya Bank interest outpacing 3.4% inflation)', statusType: 'SECURE' },
+  { id: 'dv-3', indicator: 'High-Yield Reserve Defense (Maya Bank HYS / TD)', marketRef: '6.50% Policy Rate | 6.0% - 10.0% HYS Base', portfolioExposure: '₱85,000.00', hedgeStatus: 'SECURE (Maya Bank high-yield savings interest shields capital from local currency degradation)', statusType: 'SECURE' },
+  { id: 'dv-4', indicator: 'USD & Commodity Proxy Hedge Ratio', marketRef: '₱15,000.00 (BTC, Gold & Foreign Assets)', portfolioExposure: '15.00% (Total Net Worth)', hedgeStatus: 'SECURE (Sufficient USD/Gold proxy hedge against PHP devaluation)', statusType: 'SECURE' }
 ];
 
 export const INITIAL_AUDIT_CHANGES: AuditChangeItem[] = [
-  { id: 'ac-1', title: 'BTC & PAXG Volatility', description: 'Both positions fell slightly in peso terms as spot USD values softened, even though the PHP weakened slightly against the greenback (₱61.42 → ₱61.62).' },
+  { id: 'ac-1', title: 'BTC & PAXG Volatility', description: 'Both positions held steady in peso terms as spot USD/PHP rate stabilized around ₱58.25.' },
   { id: 'ac-2', title: 'Equities Trend Divergence', description: 'SCC Energy continued its steady downtrend (now down roughly 15.21% below registered cost bases), while SPC Power (+4.76%) and RCR REIT (+5.45%) extended positive momentum.' },
   { id: 'ac-3', title: 'Inflation Moderation', description: 'Headline Philippine Inflation eased slightly to 6.4% in June 2026, narrowing the real under-yielding yield gap versus safe cash reserves, though structural under-yielding persists.' },
   { id: 'ac-4', title: 'Loan Collection Receipt', description: 'The short-term personal receivable of ₱10,000 extended to your friend matured on Jul 11—carried over in cash balances as fully collected at ₱10,500 (+₱500 accrued premium).' },
@@ -267,7 +269,12 @@ export default function MarketCycleAuditTab({
   const [localDevaluationItems, setLocalDevaluationItems] = useState<DevaluationItem[]>(() => {
     const saved = localStorage.getItem('portfolio_devaluation_items');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 4 && !JSON.stringify(parsed).includes('61.62') && !JSON.stringify(parsed).includes('61.42')) {
+          return parsed;
+        }
+      } catch (e) {}
     }
     return INITIAL_DEVALUATION_ITEMS;
   });
@@ -491,7 +498,16 @@ export default function MarketCycleAuditTab({
     const newCycleItems: CycleItem[] = buildCycleItemsFromAssets(assets, totalVal);
 
     // SECTION 2: Currency Devaluation & USD Asset Defense (BSP)
-    const newDevaluationItems: DevaluationItem[] = [
+    const usdHedgeAssets = assets.filter(a =>
+      a.key === 'btc' || a.key.includes('btc') ||
+      a.key === 'paxg' || a.key.includes('gold') ||
+      a.assetType === 'crypto' || a.assetType === 'commodity' ||
+      a.name.toLowerCase().includes('bitcoin') || a.name.toLowerCase().includes('gold') || a.name.toLowerCase().includes('usd')
+    );
+    const usdHedgeVal = usdHedgeAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+    const usdHedgePct = totalVal > 0 ? (usdHedgeVal / totalVal) * 100 : 0;
+
+    const coreDevaluationItems: DevaluationItem[] = [
       {
         id: 'dv-1',
         indicator: 'USD/PHP FX Benchmark',
@@ -511,12 +527,24 @@ export default function MarketCycleAuditTab({
       {
         id: 'dv-3',
         indicator: 'High-Yield Reserve Defense (Maya Bank HYS / TD)',
-        marketRef: '6.0% - 10.0% HYS Base',
-        portfolioExposure: `₱${totalSafeVal.toLocaleString()}`,
+        marketRef: '6.50% Policy Rate | 6.0% - 10.0% HYS Base',
+        portfolioExposure: `₱${totalSafeVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         hedgeStatus: 'SECURE (Maya Bank high-yield savings interest shields capital from local currency degradation)',
         statusType: 'SECURE'
+      },
+      {
+        id: 'dv-4',
+        indicator: 'USD & Commodity Proxy Hedge Ratio',
+        marketRef: `₱${usdHedgeVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (BTC, Gold & Foreign Assets)`,
+        portfolioExposure: `${usdHedgePct.toFixed(2)}% (Total Net Worth)`,
+        hedgeStatus: usdHedgePct >= 10 ? 'SECURE (Sufficient USD/Gold proxy hedge against PHP devaluation)' : 'UNDER-YIELDING (Recommend increasing USD-proxy assets to >= 10% hedge ratio)',
+        statusType: usdHedgePct >= 10 ? 'SECURE' : 'UNDER-YIELDING'
       }
     ];
+
+    // Preserve any custom user-added devaluation items
+    const customDevaluationItems = devaluationItems.filter(item => !['dv-1', 'dv-2', 'dv-3', 'dv-4'].includes(item.id));
+    const newDevaluationItems: DevaluationItem[] = [...coreDevaluationItems, ...customDevaluationItems];
 
     const newDevaluationTactics = `🛡️ Algorithmic USD Defense Matrix: USD/PHP spot ₱${usdRate.toFixed(2)}. Current Safe Shield weight is ${safePct.toFixed(1)}% (₱${totalSafeVal.toLocaleString()}) and Risk Sleeve weight is ${riskPct.toFixed(1)}% (₱${totalRiskVal.toLocaleString()}). USD proxy hedges (BTC, Gold, Foreign Equities) preserve global purchasing power against local currency depreciation.`;
 
@@ -971,7 +999,9 @@ export default function MarketCycleAuditTab({
                           className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 rounded px-2 py-1 text-xs w-full"
                         />
                       ) : (
-                        item.marketRef
+                        item.indicator.toLowerCase().includes('usd/php')
+                          ? `₱${usdPhpRate.toFixed(2)} (BSP Market Ref)`
+                          : item.marketRef
                       )}
                     </td>
                     <td className="py-3.5 text-right font-mono font-bold text-slate-900 dark:text-white">

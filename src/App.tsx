@@ -191,7 +191,7 @@ export default function App() {
   const [goals, setGoals] = useState<FamilyGoal[]>([]);
   const [budgets, setBudgets] = useState<BudgetLimit[]>([]);
   const [alerts, setAlerts] = useState<MarketAlert[]>(DEFAULT_ALERTS);
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ 'USD': 56.0 });
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ 'USD': 58.25 });
   const [targetAllocation, setTargetAllocation] = useState<number>(85);
 
   // Market Cycle Audit & Devaluation States (Synced to Firestore)
@@ -202,7 +202,15 @@ export default function App() {
   });
   const [devaluationItems, setDevaluationItems] = useState<DevaluationItem[]>(() => {
     const saved = localStorage.getItem('portfolio_devaluation_items');
-    if (saved) { try { return JSON.parse(saved); } catch {} }
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 4 && !JSON.stringify(parsed).includes('61.62') && !JSON.stringify(parsed).includes('61.42')) {
+          return parsed;
+        }
+      } catch {}
+    }
+    localStorage.setItem('portfolio_devaluation_items', JSON.stringify(INITIAL_DEVALUATION_ITEMS));
     return INITIAL_DEVALUATION_ITEMS;
   });
   const [devaluationTactics, setDevaluationTactics] = useState<string>(() => {
