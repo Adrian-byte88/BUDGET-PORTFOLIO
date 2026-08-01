@@ -38,6 +38,7 @@ import {
   Calendar,
   Check,
   Edit2,
+  Save,
   RotateCcw,
   Sliders,
   Bell
@@ -287,6 +288,31 @@ export default function MyFinancialPortfolio({
       localStorage.setItem('historical_transactions_registry', JSON.stringify(localTxs));
     }
   }, [localTxs, propTransactions]);
+
+  // --- RISK SLEEVE SUB-ALLOCATION TARGETS STATE ---
+  const [targetCryptoGoldOfTotal, setTargetCryptoGoldOfTotal] = useState<number>(() => {
+    const saved = localStorage.getItem('portfolio_target_crypto_gold');
+    return saved ? parseFloat(saved) : 9.38;
+  });
+  const [targetReitOfTotal, setTargetReitOfTotal] = useState<number>(() => {
+    const saved = localStorage.getItem('portfolio_target_reit');
+    return saved ? parseFloat(saved) : 3.75;
+  });
+  const [targetStockOfTotal, setTargetStockOfTotal] = useState<number>(() => {
+    const saved = localStorage.getItem('portfolio_target_stock');
+    return saved ? parseFloat(saved) : 1.87;
+  });
+  const [isEditingRiskSleeveTargets, setIsEditingRiskSleeveTargets] = useState<boolean>(false);
+
+  const handleSaveRiskSleeveTargets = () => {
+    localStorage.setItem('portfolio_target_crypto_gold', targetCryptoGoldOfTotal.toString());
+    localStorage.setItem('portfolio_target_reit', targetReitOfTotal.toString());
+    localStorage.setItem('portfolio_target_stock', targetStockOfTotal.toString());
+    setIsEditingRiskSleeveTargets(false);
+    if (onTriggerPopupModal) {
+      onTriggerPopupModal('search_grounding', 'Risk Sleeve Targets Saved', 'Sub-allocation target percentages have been saved.');
+    }
+  };
 
   // --- 4. CYCLE ITEMS STATE ---
   const [localCycleItems, setLocalCycleItems] = useState<CycleItem[]>(() => {
@@ -571,8 +597,11 @@ export default function MyFinancialPortfolio({
   );
   const cryptoGoldValue = cryptoGoldAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const cryptoGoldWeightOfTotal = totalPortfolioValue > 0 ? (cryptoGoldValue / totalPortfolioValue) * 100 : 0;
-  const targetCryptoGoldOfTotal = 9.38; // As in the image (62.5% of the 15% risk sleeve)
-  const cryptoGoldStatus = cryptoGoldWeightOfTotal > targetCryptoGoldOfTotal ? 'OVERWEIGHT' : 'UNDERWEIGHT';
+  const cryptoGoldStatus = cryptoGoldWeightOfTotal > targetCryptoGoldOfTotal + 0.05
+    ? 'OVERWEIGHT'
+    : cryptoGoldWeightOfTotal < targetCryptoGoldOfTotal - 0.05
+    ? 'UNDERWEIGHT'
+    : 'ALIGNED';
 
   // Pillar 2: REITs (Manulife + RCR)
   const reitAssets = riskAssets.filter(
@@ -580,8 +609,11 @@ export default function MyFinancialPortfolio({
   );
   const reitValue = reitAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const reitWeightOfTotal = totalPortfolioValue > 0 ? (reitValue / totalPortfolioValue) * 100 : 0;
-  const targetReitOfTotal = 3.75; // As in the image (25% of the 15% risk sleeve)
-  const reitStatus = reitWeightOfTotal > targetReitOfTotal ? 'OVERWEIGHT' : 'UNDERWEIGHT';
+  const reitStatus = reitWeightOfTotal > targetReitOfTotal + 0.05
+    ? 'OVERWEIGHT'
+    : reitWeightOfTotal < targetReitOfTotal - 0.05
+    ? 'UNDERWEIGHT'
+    : 'ALIGNED';
 
   // Pillar 3: Stocks (SCC + SPC)
   const stockAssets = riskAssets.filter(
@@ -589,8 +621,11 @@ export default function MyFinancialPortfolio({
   );
   const stockValue = stockAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
   const stockWeightOfTotal = totalPortfolioValue > 0 ? (stockValue / totalPortfolioValue) * 100 : 0;
-  const targetStockOfTotal = 1.87; // As in the image (12.5% of the 15% risk sleeve)
-  const stockStatus = stockWeightOfTotal > targetStockOfTotal ? 'OVERWEIGHT' : 'UNDERWEIGHT';
+  const stockStatus = stockWeightOfTotal > targetStockOfTotal + 0.05
+    ? 'OVERWEIGHT'
+    : stockWeightOfTotal < targetStockOfTotal - 0.05
+    ? 'UNDERWEIGHT'
+    : 'ALIGNED';
 
   // 3. SALARY DILUTION & EMERGENCY SAFEGUARD MATH AUDIT
   const targetPortfolioSize = targetRisk > 0 ? totalRiskSleeve / (targetRisk / 100) : 0;
@@ -988,10 +1023,43 @@ export default function MyFinancialPortfolio({
 
         {/* Risk Sleeve Sub-Allocation Table */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-xs">
-          <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-950">
-            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Risk Sleeve Sub-Allocation (The Proportional 15%)
-            </h4>
+          <div className="p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-950 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center space-x-2">
+                <span>Risk Sleeve Sub-Allocation (The Proportional 15%)</span>
+                <span className="bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9px] font-mono px-2 py-0.5 rounded-full font-bold">
+                  Target Sum: {(targetCryptoGoldOfTotal + targetReitOfTotal + targetStockOfTotal).toFixed(2)}%
+                </span>
+              </h4>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                Editable target percentages per risk pillar. Updates real-time portfolio alignment status.
+              </p>
+            </div>
+            {isEditingRiskSleeveTargets ? (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleSaveRiskSleeveTargets}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1 shadow-xs transition-all cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Target %</span>
+                </button>
+                <button
+                  onClick={() => setIsEditingRiskSleeveTargets(false)}
+                  className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsEditingRiskSleeveTargets(true)}
+                className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-white/10 hover:border-blue-500 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition-all cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-blue-500" />
+                <span>Edit Target %</span>
+              </button>
+            )}
           </div>
           
           <div className="overflow-x-auto">
@@ -1002,7 +1070,7 @@ export default function MyFinancialPortfolio({
                   <th className="py-3">Included Assets</th>
                   <th className="py-3 text-right">Current Value</th>
                   <th className="py-3 text-right">Current %</th>
-                  <th className="py-3 text-right">Target %</th>
+                  <th className="py-3 text-right pr-4">Target %</th>
                   <th className="py-3 text-center pr-5">Status</th>
                 </tr>
               </thead>
@@ -1014,12 +1082,31 @@ export default function MyFinancialPortfolio({
                     ₱{cryptoGoldValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="py-3.5 text-xs font-mono text-right font-bold">{cryptoGoldWeightOfTotal.toFixed(2)}%</td>
-                  <td className="py-3.5 text-xs font-mono text-right text-slate-400">9.38%</td>
+                  <td className="py-3.5 text-xs font-mono text-right pr-4">
+                    {isEditingRiskSleeveTargets ? (
+                      <div className="flex items-center justify-end space-x-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={targetCryptoGoldOfTotal}
+                          onChange={(e) => setTargetCryptoGoldOfTotal(parseFloat(e.target.value) || 0)}
+                          className="w-20 px-2 py-1 text-xs font-mono text-right bg-white dark:bg-slate-800 border border-blue-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
+                        />
+                        <span className="text-xs text-slate-400 font-mono">%</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-700 dark:text-slate-300 font-bold">{targetCryptoGoldOfTotal.toFixed(2)}%</span>
+                    )}
+                  </td>
                   <td className="py-3.5 text-center pr-5">
                     <span className={`px-2 py-0.5 text-[8px] font-extrabold rounded ${
                       cryptoGoldStatus === 'OVERWEIGHT'
                         ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400'
+                        : cryptoGoldStatus === 'UNDERWEIGHT'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
                     }`}>
                       {cryptoGoldStatus}
                     </span>
@@ -1032,12 +1119,31 @@ export default function MyFinancialPortfolio({
                     ₱{reitValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="py-3.5 text-xs font-mono text-right font-bold">{reitWeightOfTotal.toFixed(2)}%</td>
-                  <td className="py-3.5 text-xs font-mono text-right text-slate-400">3.75%</td>
+                  <td className="py-3.5 text-xs font-mono text-right pr-4">
+                    {isEditingRiskSleeveTargets ? (
+                      <div className="flex items-center justify-end space-x-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={targetReitOfTotal}
+                          onChange={(e) => setTargetReitOfTotal(parseFloat(e.target.value) || 0)}
+                          className="w-20 px-2 py-1 text-xs font-mono text-right bg-white dark:bg-slate-800 border border-blue-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
+                        />
+                        <span className="text-xs text-slate-400 font-mono">%</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-700 dark:text-slate-300 font-bold">{targetReitOfTotal.toFixed(2)}%</span>
+                    )}
+                  </td>
                   <td className="py-3.5 text-center pr-5">
                     <span className={`px-2 py-0.5 text-[8px] font-extrabold rounded ${
                       reitStatus === 'OVERWEIGHT'
                         ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400'
+                        : reitStatus === 'UNDERWEIGHT'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
                     }`}>
                       {reitStatus}
                     </span>
@@ -1050,12 +1156,31 @@ export default function MyFinancialPortfolio({
                     ₱{stockValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="py-3.5 text-xs font-mono text-right font-bold">{stockWeightOfTotal.toFixed(2)}%</td>
-                  <td className="py-3.5 text-xs font-mono text-right text-slate-400">1.87%</td>
+                  <td className="py-3.5 text-xs font-mono text-right pr-4">
+                    {isEditingRiskSleeveTargets ? (
+                      <div className="flex items-center justify-end space-x-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={targetStockOfTotal}
+                          onChange={(e) => setTargetStockOfTotal(parseFloat(e.target.value) || 0)}
+                          className="w-20 px-2 py-1 text-xs font-mono text-right bg-white dark:bg-slate-800 border border-blue-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
+                        />
+                        <span className="text-xs text-slate-400 font-mono">%</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-700 dark:text-slate-300 font-bold">{targetStockOfTotal.toFixed(2)}%</span>
+                    )}
+                  </td>
                   <td className="py-3.5 text-center pr-5">
                     <span className={`px-2 py-0.5 text-[8px] font-extrabold rounded ${
-                      stockStatus === 'UNDERWEIGHT'
+                      stockStatus === 'OVERWEIGHT'
                         ? 'bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400'
+                        : stockStatus === 'UNDERWEIGHT'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
+                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
                     }`}>
                       {stockStatus}
                     </span>

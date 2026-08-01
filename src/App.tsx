@@ -31,8 +31,9 @@ import MarketCycleAuditTab, {
 } from './components/MarketCycleAuditTab';
 import SettingsModal from './components/SettingsModal';
 import PhilippineClock from './components/PhilippineClock';
+import ProPaywallOverlay from './components/ProPaywallOverlay';
 import { AIPopupModal } from './components/AIPopupModal';
-import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check } from 'lucide-react';
+import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check, Lock, Crown } from 'lucide-react';
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 
 const DEFAULT_BUDGETS: BudgetLimit[] = [
@@ -43,6 +44,8 @@ const DEFAULT_BUDGETS: BudgetLimit[] = [
   { category: 'Shopping', limitPHP: 5000, spentPHP: 0 },
   { category: 'Other', limitPHP: 3000, spentPHP: 0 },
 ];
+
+const FREE_ALLOWED_TABS = ['dashboard', 'ledger', 'social', 'transactions'] as const;
 
 const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
@@ -299,6 +302,34 @@ export default function App() {
 
   const accessibleTabs = (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
+  const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro'>(() => {
+    if (email === ADMIN_EMAIL) return 'pro';
+    return (localStorage.getItem(`wealth_vault_sub_tier_${email}`) as 'free' | 'pro') || 'free';
+  });
+
+  useEffect(() => {
+    if (email === ADMIN_EMAIL) {
+      setSubscriptionTier('pro');
+    } else {
+      const saved = localStorage.getItem(`wealth_vault_sub_tier_${email}`);
+      setSubscriptionTier((saved as 'free' | 'pro') || 'free');
+    }
+  }, [email]);
+
+  const handleUpdateSubscriptionTier = (newTier: 'free' | 'pro') => {
+    if (isAdmin) return;
+    setSubscriptionTier(newTier);
+    if (email) {
+      localStorage.setItem(`wealth_vault_sub_tier_${email}`, newTier);
+      setDoc(doc(db, "users", email, "financialData", "data"), { subscriptionTier: newTier }, { merge: true }).catch(console.error);
+    }
+    triggerPopupModal(
+      'search_grounding',
+      newTier === 'pro' ? 'Pro Plan Activated' : 'Switched to Free Tier',
+      newTier === 'pro' ? 'Welcome to Wealth Vault Pro! Full portfolio, asset sleeve, and market audit tools unlocked.' : 'Switched account to Free Tier.'
+    );
+  };
+
   // Real-time state synchronization from Firestore across all devices and previews
   useEffect(() => {
     if (!email) {
@@ -356,6 +387,10 @@ export default function App() {
         setBudgetCap(userBudgetCap);
 
         if (data.targetAllocation !== undefined) setTargetAllocation(data.targetAllocation);
+        if (data.subscriptionTier !== undefined && !isAdmin) {
+          setSubscriptionTier(data.subscriptionTier);
+          localStorage.setItem(`wealth_vault_sub_tier_${email}`, data.subscriptionTier);
+        }
         if (data.alerts && Array.isArray(data.alerts) && data.alerts.length > 0) {
           setAlerts(data.alerts.map((a: MarketAlert) => ({
             ...a,
@@ -1394,6 +1429,8 @@ export default function App() {
           setSettingsDefaultTab(tab || 'profile');
           setIsSettingsOpen(true);
         }}
+        subscriptionTier={subscriptionTier}
+        isAdmin={isAdmin}
       />
 
       {/* Toast Notification Container */}
@@ -1432,6 +1469,7 @@ export default function App() {
           <nav className="flex space-x-2" aria-label="Tabs">
             {accessibleTabs.map((tab) => {
               const isActive = activeTab === tab;
+              const isLocked = !isAdmin && subscriptionTier === 'free' && !FREE_ALLOWED_TABS.includes(tab as any);
               const titles = {
                 dashboard: 'Summary Dashboard',
                 portfolio: 'My Financial Portfolio',
@@ -1446,13 +1484,19 @@ export default function App() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-tight transition-all whitespace-nowrap border ${
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-tight transition-all whitespace-nowrap border flex items-center space-x-1.5 ${
                     isActive
                       ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                       : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
-                  {titles[tab]}
+                  <span>{titles[tab]}</span>
+                  {isLocked && (
+                    <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center space-x-0.5">
+                      <Lock className="w-2.5 h-2.5" />
+                      <span>PRO</span>
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1480,47 +1524,63 @@ export default function App() {
         )}
 
         {activeTab === 'portfolio' && (
-          <MyFinancialPortfolio
-            assets={assets}
-            usdPhpRate={exchangeRates.USD}
-            targetAllocation={targetAllocation}
-            onUpdateTargetAllocation={setTargetAllocation}
-            cycleItems={cycleItems}
-            onUpdateCycleItems={setCycleItems}
-            devaluationItems={devaluationItems}
-            onUpdateDevaluationItems={setDevaluationItems}
-            devaluationTactics={devaluationTactics}
-            onUpdateDevaluationTactics={setDevaluationTactics}
-            auditChanges={auditChanges}
-            onUpdateAuditChanges={setAuditChanges}
-            deploymentItems={deploymentItems}
-            onUpdateDeploymentItems={setDeploymentItems}
-            budgetCap={budgetCap}
-            onUpdateBudgetCap={setBudgetCap}
-            onTriggerPopupModal={triggerPopupModal}
-            transactions={transactions}
-            onAddTransaction={handleAddTransaction}
-            onDeleteTransaction={handleDeleteTransaction}
-            onResetTransactions={handleResetTransactions}
-          />
+          !isAdmin && subscriptionTier === 'free' ? (
+            <ProPaywallOverlay
+              tabName="My Financial Portfolio"
+              onUpgrade={() => handleUpdateSubscriptionTier('pro')}
+              onGoDashboard={() => setActiveTab('dashboard')}
+            />
+          ) : (
+            <MyFinancialPortfolio
+              assets={assets}
+              usdPhpRate={exchangeRates.USD}
+              targetAllocation={targetAllocation}
+              onUpdateTargetAllocation={setTargetAllocation}
+              cycleItems={cycleItems}
+              onUpdateCycleItems={setCycleItems}
+              devaluationItems={devaluationItems}
+              onUpdateDevaluationItems={setDevaluationItems}
+              devaluationTactics={devaluationTactics}
+              onUpdateDevaluationTactics={setDevaluationTactics}
+              auditChanges={auditChanges}
+              onUpdateAuditChanges={setAuditChanges}
+              deploymentItems={deploymentItems}
+              onUpdateDeploymentItems={setDeploymentItems}
+              budgetCap={budgetCap}
+              onUpdateBudgetCap={setBudgetCap}
+              onTriggerPopupModal={triggerPopupModal}
+              transactions={transactions}
+              onAddTransaction={handleAddTransaction}
+              onDeleteTransaction={handleDeleteTransaction}
+              onResetTransactions={handleResetTransactions}
+            />
+          )
         )}
 
         {activeTab === 'assets' && (
-          <AssetSleeveTab
-            assets={assets}
-            onUpdateAssetPrice={handleUpdateAssetPrice}
-            onUpdateAssetHoldings={handleUpdateAssetHoldings}
-            onDeleteAsset={handleDeleteAsset}
-            onAddTrade={handleAddTrade}
-            targetAllocation={targetAllocation}
-            onUpdateTargetAllocation={setTargetAllocation}
-            onExecuteSyncAI={handleExecuteSyncAI}
-            usdPhpRate={exchangeRates.USD}
-            onAddAsset={handleAddAsset}
-            alerts={alerts}
-            onAddAlert={handleAddAlert}
-            onDeleteAlert={handleDeleteAlert}
-          />
+          !isAdmin && subscriptionTier === 'free' ? (
+            <ProPaywallOverlay
+              tabName="Risk & Safe Asset Registry"
+              onUpgrade={() => handleUpdateSubscriptionTier('pro')}
+              onGoDashboard={() => setActiveTab('dashboard')}
+            />
+          ) : (
+            <AssetSleeveTab
+              assets={assets}
+              onUpdateAssetPrice={handleUpdateAssetPrice}
+              onUpdateAssetHoldings={handleUpdateAssetHoldings}
+              onDeleteAsset={handleDeleteAsset}
+              onAddTrade={handleAddTrade}
+              targetAllocation={targetAllocation}
+              onUpdateTargetAllocation={setTargetAllocation}
+              onExecuteSyncAI={handleExecuteSyncAI}
+              usdPhpRate={exchangeRates.USD}
+              onAddAsset={handleAddAsset}
+              alerts={alerts}
+              onAddAlert={handleAddAlert}
+              onDeleteAlert={handleDeleteAlert}
+            />
+          )
         )}
 
         {activeTab === 'ledger' && (
@@ -1551,28 +1611,36 @@ export default function App() {
         )}
 
         {activeTab === 'audit' && (
-          <MarketCycleAuditTab
-            assets={assets}
-            usdPhpRate={exchangeRates.USD}
-            alerts={alerts}
-            onAddAlert={handleAddAlert}
-            onDeleteAlert={handleDeleteAlert}
-            highlightId={highlightId}
-            cycleItems={cycleItems}
-            onUpdateCycleItems={setCycleItems}
-            devaluationItems={devaluationItems}
-            onUpdateDevaluationItems={setDevaluationItems}
-            devaluationTactics={devaluationTactics}
-            onUpdateDevaluationTactics={setDevaluationTactics}
-            auditChanges={auditChanges}
-            onUpdateAuditChanges={setAuditChanges}
-            deploymentItems={deploymentItems}
-            onUpdateDeploymentItems={setDeploymentItems}
-            budgetCap={budgetCap}
-            onUpdateBudgetCap={setBudgetCap}
-            onTriggerPopupModal={triggerPopupModal}
-            onSyncCycleAuditToCloud={handleSyncCycleAuditToCloud}
-          />
+          !isAdmin && subscriptionTier === 'free' ? (
+            <ProPaywallOverlay
+              tabName="Market Cycle Audit"
+              onUpgrade={() => handleUpdateSubscriptionTier('pro')}
+              onGoDashboard={() => setActiveTab('dashboard')}
+            />
+          ) : (
+            <MarketCycleAuditTab
+              assets={assets}
+              usdPhpRate={exchangeRates.USD}
+              alerts={alerts}
+              onAddAlert={handleAddAlert}
+              onDeleteAlert={handleDeleteAlert}
+              highlightId={highlightId}
+              cycleItems={cycleItems}
+              onUpdateCycleItems={setCycleItems}
+              devaluationItems={devaluationItems}
+              onUpdateDevaluationItems={setDevaluationItems}
+              devaluationTactics={devaluationTactics}
+              onUpdateDevaluationTactics={setDevaluationTactics}
+              auditChanges={auditChanges}
+              onUpdateAuditChanges={setAuditChanges}
+              deploymentItems={deploymentItems}
+              onUpdateDeploymentItems={setDeploymentItems}
+              budgetCap={budgetCap}
+              onUpdateBudgetCap={setBudgetCap}
+              onTriggerPopupModal={triggerPopupModal}
+              onSyncCycleAuditToCloud={handleSyncCycleAuditToCloud}
+            />
+          )
         )}
 
         {activeTab === 'transactions' && (
@@ -1605,6 +1673,9 @@ export default function App() {
         onExecuteSyncBackup={handleExecuteSyncBackup}
         onExecuteRestoreBackup={handleExecuteRestoreBackup}
         onShowToast={triggerToast}
+        subscriptionTier={subscriptionTier}
+        onUpdateSubscriptionTier={handleUpdateSubscriptionTier}
+        isAdmin={isAdmin}
       />
 
       {/* Clean elegant bottom footer with Philippine live clock */}

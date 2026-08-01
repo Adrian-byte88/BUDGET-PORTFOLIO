@@ -16,7 +16,8 @@ import {
   Upload,
   RotateCcw,
   RefreshCw,
-  FileText
+  FileText,
+  Crown
 } from 'lucide-react';
 import { AssetPosition, ExpenseEntry, TradeEntry, FamilyGoal, BudgetLimit } from '../types';
 import ExportEngine from './ExportEngine';
@@ -39,6 +40,9 @@ interface SettingsModalProps {
   onExecuteSyncBackup: () => Promise<void>;
   onExecuteRestoreBackup: () => Promise<void>;
   onShowToast: (title: string, desc: string, type: 'success' | 'warning' | 'error') => void;
+  subscriptionTier?: 'free' | 'pro';
+  onUpdateSubscriptionTier?: (tier: 'free' | 'pro') => void;
+  isAdmin?: boolean;
 }
 
 const AVATAR_PRESETS = [
@@ -66,7 +70,10 @@ export default function SettingsModal({
   onUploadBackup,
   onExecuteSyncBackup,
   onExecuteRestoreBackup,
-  onShowToast
+  onShowToast,
+  subscriptionTier = 'free',
+  onUpdateSubscriptionTier,
+  isAdmin = false
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'export'>(defaultTab);
 
@@ -436,6 +443,43 @@ export default function SettingsModal({
                   {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
                   <span>{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </button>
+              </div>
+
+              {/* Subscription Plan Status (For Users) */}
+              <div className="p-5 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 border border-blue-200 dark:border-blue-900/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center space-x-2">
+                    <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <span>Account Subscription Tier</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {isAdmin ? (
+                      <b className="text-purple-600 dark:text-purple-400">Executive Admin Account — Unlimited Pro Access</b>
+                    ) : subscriptionTier === 'pro' ? (
+                      <span className="text-blue-600 dark:text-blue-400 font-semibold">Active Wealth Vault Pro Member ($9.99/mo) — All Features Unlocked</span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold">Free Tier — Access to Summary, Ledger, Family Sync & History</span>
+                    )}
+                  </p>
+                </div>
+
+                {!isAdmin && onUpdateSubscriptionTier && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextTier = subscriptionTier === 'pro' ? 'free' : 'pro';
+                      onUpdateSubscriptionTier(nextTier);
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
+                      subscriptionTier === 'pro'
+                        ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white'
+                    }`}
+                  >
+                    <Crown className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{subscriptionTier === 'pro' ? 'Switch to Free Tier' : 'Upgrade to Pro ($9.99/mo)'}</span>
+                  </button>
+                )}
               </div>
 
               {/* Notification & Sync Toggles */}

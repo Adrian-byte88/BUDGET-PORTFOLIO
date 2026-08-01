@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Bell, Shield, LogOut, User, Menu, X, Wifi, Settings } from 'lucide-react';
+import { Sun, Moon, Bell, Shield, LogOut, User, Menu, X, Wifi, Settings, Crown, Lock } from 'lucide-react';
 import { MarketAlert, AssetPosition, ExpenseEntry, FamilyGoal, BudgetLimit } from '../types';
 import SearchEngine from './SearchEngine';
 import logoImg from '../assets/images/budget_portfolio_logo_1784635990294.jpg';
@@ -18,6 +18,8 @@ interface NavbarProps {
   budgets: BudgetLimit[];
   onSelect: (type: string, id: string, targetTab?: string) => void;
   onOpenSettings: (tab?: 'profile' | 'preferences' | 'export') => void;
+  subscriptionTier?: 'free' | 'pro';
+  isAdmin?: boolean;
 }
 
 export default function Navbar({
@@ -33,6 +35,8 @@ export default function Navbar({
   budgets,
   onSelect,
   onOpenSettings,
+  subscriptionTier = 'free',
+  isAdmin = false,
 }: NavbarProps) {
   const [showAlerts, setShowAlerts] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -191,9 +195,24 @@ export default function Navbar({
                 <span className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors max-w-[140px] truncate">
                   {email}
                 </span>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Settings & Profile
+                <span className="text-[9px] uppercase tracking-widest flex items-center gap-1 font-extrabold">
+                  {isAdmin ? (
+                    <span className="text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
+                      <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                      Admin
+                    </span>
+                  ) : subscriptionTier === 'pro' ? (
+                    <span className="text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
+                      <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                      Pro Plan
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" />
+                      Free Tier
+                    </span>
+                  )}
+                  <span className="text-slate-400 dark:text-slate-500">• Settings</span>
                 </span>
               </div>
               
