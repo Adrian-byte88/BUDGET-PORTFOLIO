@@ -1192,6 +1192,7 @@ export default function App() {
 
   // Capitalize collaborative goal progress
   const handleUpdateGoalContribution = (id: string, amount: number) => {
+    const targetGoal = goals.find((g) => g.id === id);
     setGoals((prev) => {
       const nextGoals = prev.map((g) => (g.id === id ? { ...g, currentPHP: g.currentPHP + amount } : g));
       if (email) {
@@ -1199,6 +1200,15 @@ export default function App() {
       }
       return nextGoals;
     });
+
+    handleAddTransaction({
+      date: new Date().toISOString().split('T')[0],
+      asset: targetGoal ? `Family Goal: ${targetGoal.title}` : 'Family Goal Contribution',
+      type: 'Deposit',
+      amount: `+₱${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      details: `Capital contribution allocated towards ${targetGoal ? targetGoal.title : 'shared family goal'}`
+    });
+
     triggerToast('Inflow Consolidated', `Allocated ₱${amount.toLocaleString()} towards shared family goal`, 'success');
   };
 
