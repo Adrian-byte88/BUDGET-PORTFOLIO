@@ -255,7 +255,7 @@ export default function MarketCycleAuditTab({
     }
     return INITIAL_CYCLE_ITEMS;
   });
-  const cycleItems = (propCycleItems && propCycleItems.length > 0) ? propCycleItems : localCycleItems;
+  const cycleItems = propCycleItems !== undefined ? propCycleItems : localCycleItems;
   const [isEditingCycle, setIsEditingCycle] = useState(false);
 
   const setCycleItems = (val: CycleItem[] | ((prev: CycleItem[]) => CycleItem[])) => {
@@ -278,12 +278,12 @@ export default function MarketCycleAuditTab({
     }
     return INITIAL_DEVALUATION_ITEMS;
   });
-  const devaluationItems = (propDevaluationItems && propDevaluationItems.length > 0) ? propDevaluationItems : localDevaluationItems;
+  const devaluationItems = propDevaluationItems !== undefined ? propDevaluationItems : localDevaluationItems;
 
   const [localDevaluationTactics, setLocalDevaluationTactics] = useState(() => {
     return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
   });
-  const devaluationTactics = propDevaluationTactics || localDevaluationTactics;
+  const devaluationTactics = propDevaluationTactics !== undefined ? propDevaluationTactics : localDevaluationTactics;
   const [isEditingDevaluation, setIsEditingDevaluation] = useState(false);
 
   const setDevaluationItems = (val: DevaluationItem[] | ((prev: DevaluationItem[]) => DevaluationItem[])) => {
@@ -311,7 +311,7 @@ export default function MarketCycleAuditTab({
     }
     return INITIAL_AUDIT_CHANGES;
   });
-  const auditChanges = (propAuditChanges && propAuditChanges.length > 0) ? propAuditChanges.slice(0, 10) : localAuditChanges;
+  const auditChanges = propAuditChanges !== undefined ? propAuditChanges.slice(0, 10) : localAuditChanges;
   const [isEditingAudit, setIsEditingAudit] = useState(false);
 
   const setAuditChanges = (val: AuditChangeItem[] | ((prev: AuditChangeItem[]) => AuditChangeItem[])) => {
@@ -351,12 +351,12 @@ export default function MarketCycleAuditTab({
     }
     return INITIAL_DEPLOYMENT_ITEMS;
   });
-  const deploymentItems = (propDeploymentItems && propDeploymentItems.length > 0) ? propDeploymentItems : localDeploymentItems;
+  const deploymentItems = propDeploymentItems !== undefined ? propDeploymentItems : localDeploymentItems;
 
   const [localBudgetCap, setLocalBudgetCap] = useState(() => {
     return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
   });
-  const budgetCap = propBudgetCap || localBudgetCap;
+  const budgetCap = propBudgetCap !== undefined ? propBudgetCap : localBudgetCap;
   const [isEditingDeployment, setIsEditingDeployment] = useState(false);
 
   const setDeploymentItems = (val: DeploymentPlanItem[] | ((prev: DeploymentPlanItem[]) => DeploymentPlanItem[])) => {

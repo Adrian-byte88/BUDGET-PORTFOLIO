@@ -349,12 +349,12 @@ export default function MyFinancialPortfolio({
     }
     return INITIAL_DEVALUATION_ITEMS;
   });
-  const devaluationItems = (propDevaluationItems && propDevaluationItems.length > 0) ? propDevaluationItems : localDevaluationItems;
+  const devaluationItems = propDevaluationItems !== undefined ? propDevaluationItems : localDevaluationItems;
 
   const [localDevaluationTactics, setLocalDevaluationTactics] = useState(() => {
     return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
   });
-  const devaluationTactics = propDevaluationTactics || localDevaluationTactics;
+  const devaluationTactics = propDevaluationTactics !== undefined ? propDevaluationTactics : localDevaluationTactics;
   const [isEditingDevaluation, setIsEditingDevaluation] = useState(false);
 
   const setDevaluationItems = (val: DevaluationItem[] | ((prev: DevaluationItem[]) => DevaluationItem[])) => {
@@ -379,7 +379,7 @@ export default function MyFinancialPortfolio({
     }
     return INITIAL_AUDIT_CHANGES;
   });
-  const auditChanges = (propAuditChanges && propAuditChanges.length > 0) ? propAuditChanges : localAuditChanges;
+  const auditChanges = propAuditChanges !== undefined ? propAuditChanges : localAuditChanges;
   const [isEditingAudit, setIsEditingAudit] = useState(false);
 
   const setAuditChanges = (val: AuditChangeItem[] | ((prev: AuditChangeItem[]) => AuditChangeItem[])) => {

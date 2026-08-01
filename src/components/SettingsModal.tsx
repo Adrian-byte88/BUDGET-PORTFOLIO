@@ -76,11 +76,18 @@ export default function SettingsModal({
 
   // Profile States
   const [displayName, setDisplayName] = useState<string>(() => {
-    return localStorage.getItem('wealth_vault_display_name') || email.split('@')[0] || 'User';
+    return localStorage.getItem(`wealth_vault_display_name_${email}`) || email.split('@')[0] || 'User';
   });
   const [profilePic, setProfilePic] = useState<string | null>(() => {
-    return localStorage.getItem('wealth_vault_profile_pic') || null;
+    return localStorage.getItem(`wealth_vault_profile_pic_${email}`) || null;
   });
+
+  useEffect(() => {
+    if (email) {
+      setDisplayName(localStorage.getItem(`wealth_vault_display_name_${email}`) || email.split('@')[0] || 'User');
+      setProfilePic(localStorage.getItem(`wealth_vault_profile_pic_${email}`) || null);
+    }
+  }, [email]);
 
   // Preferences States
   const [defaultCurrency, setDefaultCurrency] = useState<string>(() => {
@@ -105,11 +112,11 @@ export default function SettingsModal({
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('wealth_vault_display_name', displayName);
+    localStorage.setItem(`wealth_vault_display_name_${email}`, displayName);
     if (profilePic) {
-      localStorage.setItem('wealth_vault_profile_pic', profilePic);
+      localStorage.setItem(`wealth_vault_profile_pic_${email}`, profilePic);
     } else {
-      localStorage.removeItem('wealth_vault_profile_pic');
+      localStorage.removeItem(`wealth_vault_profile_pic_${email}`);
     }
     // Dispatch custom event so Navbar updates immediately
     window.dispatchEvent(new Event('wealth_vault_profile_updated'));
@@ -127,7 +134,7 @@ export default function SettingsModal({
       reader.onloadend = () => {
         const result = reader.result as string;
         setProfilePic(result);
-        localStorage.setItem('wealth_vault_profile_pic', result);
+        localStorage.setItem(`wealth_vault_profile_pic_${email}`, result);
         window.dispatchEvent(new Event('wealth_vault_profile_updated'));
         onShowToast('Photo Updated', 'Profile picture changed successfully.', 'success');
       };

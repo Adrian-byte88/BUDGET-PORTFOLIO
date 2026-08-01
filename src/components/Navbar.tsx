@@ -46,16 +46,25 @@ export default function Navbar({
 
   // Profile picture and display name state
   const [profilePic, setProfilePic] = useState<string | null>(() => {
-    return localStorage.getItem('wealth_vault_profile_pic') || null;
+    return localStorage.getItem(`wealth_vault_profile_pic_${email}`) || null;
   });
   const [displayName, setDisplayName] = useState<string>(() => {
-    return localStorage.getItem('wealth_vault_display_name') || email.split('@')[0] || 'User';
+    return localStorage.getItem(`wealth_vault_display_name_${email}`) || (email ? email.split('@')[0] : 'User');
   });
 
   useEffect(() => {
+    if (email) {
+      setProfilePic(localStorage.getItem(`wealth_vault_profile_pic_${email}`) || null);
+      setDisplayName(localStorage.getItem(`wealth_vault_display_name_${email}`) || email.split('@')[0] || 'User');
+    }
+  }, [email]);
+
+  useEffect(() => {
     const handleProfileUpdate = () => {
-      setProfilePic(localStorage.getItem('wealth_vault_profile_pic'));
-      setDisplayName(localStorage.getItem('wealth_vault_display_name') || email.split('@')[0] || 'User');
+      if (email) {
+        setProfilePic(localStorage.getItem(`wealth_vault_profile_pic_${email}`) || null);
+        setDisplayName(localStorage.getItem(`wealth_vault_display_name_${email}`) || email.split('@')[0] || 'User');
+      }
     };
     window.addEventListener('wealth_vault_profile_updated', handleProfileUpdate);
     return () => window.removeEventListener('wealth_vault_profile_updated', handleProfileUpdate);

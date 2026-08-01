@@ -179,6 +179,8 @@ const DEFAULT_ALERTS: MarketAlert[] = [
   }
 ];
 
+const ADMIN_EMAIL = 'junnelmrfl@gmail.com';
+
 export default function App() {
   // Session Authentication state
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -189,61 +191,22 @@ export default function App() {
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [trades, setTrades] = useState<TradeEntry[]>([]);
   const [goals, setGoals] = useState<FamilyGoal[]>([]);
-  const [budgets, setBudgets] = useState<BudgetLimit[]>([]);
+  const [budgets, setBudgets] = useState<BudgetLimit[]>(DEFAULT_BUDGETS);
   const [alerts, setAlerts] = useState<MarketAlert[]>(DEFAULT_ALERTS);
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ 'USD': 58.25 });
   const [targetAllocation, setTargetAllocation] = useState<number>(85);
 
-  // Market Cycle Audit & Devaluation States (Synced to Firestore)
-  const [cycleItems, setCycleItems] = useState<CycleItem[]>(() => {
-    const saved = localStorage.getItem('portfolio_cycle_items');
-    if (saved) { try { return JSON.parse(saved); } catch {} }
-    return INITIAL_CYCLE_ITEMS;
-  });
-  const [devaluationItems, setDevaluationItems] = useState<DevaluationItem[]>(() => {
-    const saved = localStorage.getItem('portfolio_devaluation_items');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 4 && !JSON.stringify(parsed).includes('61.62') && !JSON.stringify(parsed).includes('61.42')) {
-          return parsed;
-        }
-      } catch {}
-    }
-    localStorage.setItem('portfolio_devaluation_items', JSON.stringify(INITIAL_DEVALUATION_ITEMS));
-    return INITIAL_DEVALUATION_ITEMS;
-  });
-  const [devaluationTactics, setDevaluationTactics] = useState<string>(() => {
-    return localStorage.getItem('portfolio_devaluation_tactics') || '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.';
-  });
-  const [auditChanges, setAuditChanges] = useState<AuditChangeItem[]>(() => {
-    const saved = localStorage.getItem('portfolio_audit_changes');
-    if (saved) { try { const p = JSON.parse(saved); if (Array.isArray(p)) return p.slice(0, 5); } catch {} }
-    return INITIAL_AUDIT_CHANGES;
-  });
-  const [deploymentItems, setDeploymentItems] = useState<DeploymentPlanItem[]>(() => {
-    const saved = localStorage.getItem('portfolio_deployment_items');
-    if (saved) { try { return JSON.parse(saved); } catch {} }
-    return INITIAL_DEPLOYMENT_ITEMS;
-  });
-  const [budgetCap, setBudgetCap] = useState<string>(() => {
-    return localStorage.getItem('portfolio_budget_cap') || 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)';
-  });
+  // Market Cycle Audit & Devaluation States (Synced to Firestore per user)
+  const [cycleItems, setCycleItems] = useState<CycleItem[]>([]);
+  const [devaluationItems, setDevaluationItems] = useState<DevaluationItem[]>([]);
+  const [devaluationTactics, setDevaluationTactics] = useState<string>('');
+  const [auditChanges, setAuditChanges] = useState<AuditChangeItem[]>([]);
+  const [deploymentItems, setDeploymentItems] = useState<DeploymentPlanItem[]>([]);
+  const [budgetCap, setBudgetCap] = useState<string>('');
+  const [transactions, setTransactions] = useState<HistoricalTx[]>([]);
 
-  const [transactions, setTransactions] = useState<HistoricalTx[]>(() => {
-    const saved = localStorage.getItem('historical_transactions_registry');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_HISTORICAL_TXS;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('historical_transactions_registry', JSON.stringify(transactions));
-  }, [transactions]);
+  const email = firebaseUser?.email;
+  const isAdmin = email === ADMIN_EMAIL;
 
   const handleAddTransaction = (newTxData: Omit<HistoricalTx, 'id'>) => {
     const newTx: HistoricalTx = {
@@ -270,9 +233,10 @@ export default function App() {
   };
 
   const handleResetTransactions = () => {
-    setTransactions(INITIAL_HISTORICAL_TXS);
+    const resetTxs = isAdmin ? INITIAL_HISTORICAL_TXS : [];
+    setTransactions(resetTxs);
     if (email) {
-      setDoc(doc(db, "users", email, "financialData", "data"), { transactions: INITIAL_HISTORICAL_TXS }, { merge: true }).catch(console.error);
+      setDoc(doc(db, "users", email, "financialData", "data"), { transactions: resetTxs }, { merge: true }).catch(console.error);
     }
   };
 
@@ -333,14 +297,24 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  const email = firebaseUser?.email;
-  const isAdmin = firebaseUser?.email === 'junnelmrfl@gmail.com';
-
   const accessibleTabs = (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
   // Real-time state synchronization from Firestore across all devices and previews
   useEffect(() => {
-    if (!email) return;
+    if (!email) {
+      setAssets([]);
+      setExpenses([]);
+      setTransactions([]);
+      setGoals([]);
+      setBudgets(DEFAULT_BUDGETS.map(b => ({ ...b, spentPHP: 0 })));
+      setCycleItems([]);
+      setDevaluationItems([]);
+      setDevaluationTactics('');
+      setAuditChanges([]);
+      setDeploymentItems([]);
+      setBudgetCap('');
+      return;
+    }
 
     isInitialized.current = false;
 
@@ -357,80 +331,131 @@ export default function App() {
         const data = docSnap.data();
         isRemoteUpdate.current = true;
 
-        let loadedAssets: AssetPosition[] | null = null;
-        let loadedExpenses: ExpenseEntry[] | null = null;
-        let loadedGoals: FamilyGoal[] | null = null;
-        let loadedBudgets: BudgetLimit[] | null = null;
-        let loadedTargetAllocation: number | null = null;
-        let loadedAlerts: MarketAlert[] | null = null;
+        const userAssets = Array.isArray(data.assets) ? data.assets : (isAdmin ? DEFAULT_INITIAL_ASSETS : []);
+        const userExpenses = Array.isArray(data.expenses) ? data.expenses : [];
+        const userTransactions = Array.isArray(data.transactions) ? data.transactions : (isAdmin ? INITIAL_HISTORICAL_TXS : []);
+        const userGoals = Array.isArray(data.goals) ? data.goals : [];
+        const userBudgets = Array.isArray(data.budgets) ? data.budgets : DEFAULT_BUDGETS.map(b => ({ ...b, spentPHP: 0 }));
+        const userCycleItems = Array.isArray(data.cycleItems) ? data.cycleItems : (isAdmin ? INITIAL_CYCLE_ITEMS : []);
+        const userDevaluationItems = Array.isArray(data.devaluationItems) ? data.devaluationItems : (isAdmin ? INITIAL_DEVALUATION_ITEMS : []);
+        const userDevaluationTactics = data.devaluationTactics !== undefined ? data.devaluationTactics : (isAdmin ? '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.' : '');
+        const userAuditChanges = Array.isArray(data.auditChanges) ? data.auditChanges : (isAdmin ? INITIAL_AUDIT_CHANGES : []);
+        const userDeploymentItems = Array.isArray(data.deploymentItems) ? data.deploymentItems : (isAdmin ? INITIAL_DEPLOYMENT_ITEMS : []);
+        const userBudgetCap = data.budgetCap !== undefined ? data.budgetCap : (isAdmin ? 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)' : '');
 
-        if (data.assets && Array.isArray(data.assets) && data.assets.length > 0) loadedAssets = data.assets;
-        if (data.expenses) loadedExpenses = data.expenses;
-        if (data.goals) loadedGoals = data.goals;
-        if (data.budgets) loadedBudgets = data.budgets;
-        if (data.targetAllocation) loadedTargetAllocation = data.targetAllocation;
-        if (data.alerts && data.alerts.length > 0) {
-          loadedAlerts = data.alerts.map((a: MarketAlert) => ({
+        setAssets(userAssets);
+        setExpenses(userExpenses);
+        setTransactions(userTransactions);
+        setGoals(userGoals);
+        setBudgets(userBudgets);
+        setCycleItems(userCycleItems);
+        setDevaluationItems(userDevaluationItems);
+        setDevaluationTactics(userDevaluationTactics);
+        setAuditChanges(userAuditChanges);
+        setDeploymentItems(userDeploymentItems);
+        setBudgetCap(userBudgetCap);
+
+        if (data.targetAllocation !== undefined) setTargetAllocation(data.targetAllocation);
+        if (data.alerts && Array.isArray(data.alerts) && data.alerts.length > 0) {
+          setAlerts(data.alerts.map((a: MarketAlert) => ({
             ...a,
             lastTriggeredDate: a.lastTriggeredDate || new Date().toISOString()
-          }));
+          })));
         }
 
-        if (data.cycleItems && Array.isArray(data.cycleItems) && data.cycleItems.length > 0) {
-          setCycleItems(data.cycleItems);
-          localStorage.setItem('portfolio_cycle_items', JSON.stringify(data.cycleItems));
-        }
-        if (data.devaluationItems && Array.isArray(data.devaluationItems) && data.devaluationItems.length > 0) {
-          setDevaluationItems(data.devaluationItems);
-          localStorage.setItem('portfolio_devaluation_items', JSON.stringify(data.devaluationItems));
-        }
-        if (data.devaluationTactics) {
-          setDevaluationTactics(data.devaluationTactics);
-          localStorage.setItem('portfolio_devaluation_tactics', data.devaluationTactics);
-        }
-        if (data.auditChanges && Array.isArray(data.auditChanges) && data.auditChanges.length > 0) {
-          const sliced = data.auditChanges.slice(0, 5);
-          setAuditChanges(sliced);
-          localStorage.setItem('portfolio_audit_changes', JSON.stringify(sliced));
-        }
-        if (data.deploymentItems && Array.isArray(data.deploymentItems) && data.deploymentItems.length > 0) {
-          setDeploymentItems(data.deploymentItems);
-          localStorage.setItem('portfolio_deployment_items', JSON.stringify(data.deploymentItems));
-        }
-        if (data.budgetCap) {
-          setBudgetCap(data.budgetCap);
-          localStorage.setItem('portfolio_budget_cap', data.budgetCap);
-        }
-
-        if (data.transactions && Array.isArray(data.transactions) && data.transactions.length > 0) {
-          setTransactions(data.transactions);
-          localStorage.setItem('historical_transactions_registry', JSON.stringify(data.transactions));
-        }
-
-        if (loadedAssets && loadedAssets.length > 0) {
-          setAssets(loadedAssets);
-          localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(loadedAssets));
-        }
-        if (loadedExpenses) setExpenses(loadedExpenses);
-        if (loadedGoals) setGoals(loadedGoals);
-        if (loadedBudgets && loadedBudgets.length > 0) setBudgets(loadedBudgets);
-        if (loadedTargetAllocation) setTargetAllocation(loadedTargetAllocation);
-        if (loadedAlerts && loadedAlerts.length > 0) setAlerts(loadedAlerts);
+        // Save to user-scoped localStorage
+        localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(userAssets));
+        localStorage.setItem(`wealth_vault_expenses_${email}`, JSON.stringify(userExpenses));
+        localStorage.setItem(`wealth_vault_transactions_${email}`, JSON.stringify(userTransactions));
+        localStorage.setItem(`wealth_vault_goals_${email}`, JSON.stringify(userGoals));
+        localStorage.setItem(`wealth_vault_budgets_${email}`, JSON.stringify(userBudgets));
+        localStorage.setItem(`wealth_vault_cycle_${email}`, JSON.stringify(userCycleItems));
+        localStorage.setItem(`wealth_vault_devaluation_${email}`, JSON.stringify(userDevaluationItems));
+        localStorage.setItem(`wealth_vault_devaluation_tactics_${email}`, userDevaluationTactics);
+        localStorage.setItem(`wealth_vault_audit_${email}`, JSON.stringify(userAuditChanges));
+        localStorage.setItem(`wealth_vault_deployment_${email}`, JSON.stringify(userDeploymentItems));
+        localStorage.setItem(`wealth_vault_budget_cap_${email}`, userBudgetCap);
 
         isInitialized.current = true;
       } else {
-        const localSavedAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
-        if (localSavedAssets) {
+        // Document does not exist in Firestore for this user
+        // Check user-scoped localStorage fallback
+        const localAssets = localStorage.getItem(`wealth_vault_assets_${email}`);
+        let initAssets = isAdmin ? DEFAULT_INITIAL_ASSETS : [];
+        if (localAssets) {
           try {
-            const parsed = JSON.parse(localSavedAssets);
-            if (Array.isArray(parsed) && parsed.length > 0) setAssets(parsed);
-            else setAssets(DEFAULT_INITIAL_ASSETS);
-          } catch {
-            setAssets(DEFAULT_INITIAL_ASSETS);
-          }
-        } else {
-          setAssets(DEFAULT_INITIAL_ASSETS);
+            const parsed = JSON.parse(localAssets);
+            if (Array.isArray(parsed)) initAssets = parsed;
+          } catch {}
         }
+
+        const localExpenses = localStorage.getItem(`wealth_vault_expenses_${email}`);
+        let initExpenses: ExpenseEntry[] = [];
+        if (localExpenses) { try { initExpenses = JSON.parse(localExpenses); } catch {} }
+
+        const localTxs = localStorage.getItem(`wealth_vault_transactions_${email}`);
+        let initTxs: HistoricalTx[] = isAdmin ? INITIAL_HISTORICAL_TXS : [];
+        if (localTxs) { try { initTxs = JSON.parse(localTxs); } catch {} }
+
+        const localGoals = localStorage.getItem(`wealth_vault_goals_${email}`);
+        let initGoals: FamilyGoal[] = [];
+        if (localGoals) { try { initGoals = JSON.parse(localGoals); } catch {} }
+
+        const localBudgets = localStorage.getItem(`wealth_vault_budgets_${email}`);
+        let initBudgets: BudgetLimit[] = DEFAULT_BUDGETS.map(b => ({ ...b, spentPHP: 0 }));
+        if (localBudgets) { try { initBudgets = JSON.parse(localBudgets); } catch {} }
+
+        const localCycle = localStorage.getItem(`wealth_vault_cycle_${email}`);
+        let initCycle: CycleItem[] = isAdmin ? INITIAL_CYCLE_ITEMS : [];
+        if (localCycle) { try { initCycle = JSON.parse(localCycle); } catch {} }
+
+        const localDeval = localStorage.getItem(`wealth_vault_devaluation_${email}`);
+        let initDeval: DevaluationItem[] = isAdmin ? INITIAL_DEVALUATION_ITEMS : [];
+        if (localDeval) { try { initDeval = JSON.parse(localDeval); } catch {} }
+
+        const localDevalTactics = localStorage.getItem(`wealth_vault_devaluation_tactics_${email}`);
+        let initDevalTactics = localDevalTactics || (isAdmin ? '🛡️ USD Defense Tactics: Crypto positions (BTC) and Commodities (PAX Gold) act as proxy hedges, effectively minimizing raw PHP purchasing power devaluations.' : '');
+
+        const localAudit = localStorage.getItem(`wealth_vault_audit_${email}`);
+        let initAudit: AuditChangeItem[] = isAdmin ? INITIAL_AUDIT_CHANGES : [];
+        if (localAudit) { try { initAudit = JSON.parse(localAudit); } catch {} }
+
+        const localDeployment = localStorage.getItem(`wealth_vault_deployment_${email}`);
+        let initDeployment: DeploymentPlanItem[] = isAdmin ? INITIAL_DEPLOYMENT_ITEMS : [];
+        if (localDeployment) { try { initDeployment = JSON.parse(localDeployment); } catch {} }
+
+        const localBudgetCap = localStorage.getItem(`wealth_vault_budget_cap_${email}`);
+        let initBudgetCap = localBudgetCap || (isAdmin ? 'Budget Cap: ₱20,000 Total (100% Allocation to Safe Shield, unchanged mandate)' : '');
+
+        setAssets(initAssets);
+        setExpenses(initExpenses);
+        setTransactions(initTxs);
+        setGoals(initGoals);
+        setBudgets(initBudgets);
+        setCycleItems(initCycle);
+        setDevaluationItems(initDeval);
+        setDevaluationTactics(initDevalTactics);
+        setAuditChanges(initAudit);
+        setDeploymentItems(initDeployment);
+        setBudgetCap(initBudgetCap);
+
+        // Seed initial record in Firestore
+        const initialDocData = {
+          assets: initAssets,
+          expenses: initExpenses,
+          transactions: initTxs,
+          goals: initGoals,
+          budgets: initBudgets,
+          cycleItems: initCycle,
+          devaluationItems: initDeval,
+          devaluationTactics: initDevalTactics,
+          auditChanges: initAudit,
+          deploymentItems: initDeployment,
+          budgetCap: initBudgetCap,
+          updatedAt: Date.now(),
+        };
+        setDoc(docRef, initialDocData, { merge: true }).catch(console.error);
+
         isInitialized.current = true;
       }
     }, (err) => {
@@ -442,7 +467,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [email]);
+  }, [email, isAdmin]);
 
   const triggerToast = (title: string, desc: string, type: 'success' | 'warning' | 'error' = 'success') => {
     setToast({ title, desc, type });
@@ -505,7 +530,7 @@ export default function App() {
     }
   };
 
-  // Automated state persistence to Firestore with optimized debounce (Cycle audit & market ticker ticks excluded to save quota)
+  // Automated state persistence to Firestore with optimized debounce
   useEffect(() => {
     if (email && isInitialized.current) {
       if (isRemoteUpdate.current) {
@@ -516,27 +541,43 @@ export default function App() {
         isTickerUpdateRef.current = false;
         return;
       }
-      if (assets && assets.length > 0) {
-        localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(assets));
-      }
+
+      localStorage.setItem(`wealth_vault_assets_${email}`, JSON.stringify(assets));
+      localStorage.setItem(`wealth_vault_expenses_${email}`, JSON.stringify(expenses));
+      localStorage.setItem(`wealth_vault_transactions_${email}`, JSON.stringify(transactions));
+      localStorage.setItem(`wealth_vault_goals_${email}`, JSON.stringify(goals));
+      localStorage.setItem(`wealth_vault_budgets_${email}`, JSON.stringify(budgets));
+      localStorage.setItem(`wealth_vault_cycle_${email}`, JSON.stringify(cycleItems));
+      localStorage.setItem(`wealth_vault_devaluation_${email}`, JSON.stringify(devaluationItems));
+      localStorage.setItem(`wealth_vault_devaluation_tactics_${email}`, devaluationTactics);
+      localStorage.setItem(`wealth_vault_audit_${email}`, JSON.stringify(auditChanges));
+      localStorage.setItem(`wealth_vault_deployment_${email}`, JSON.stringify(deploymentItems));
+      localStorage.setItem(`wealth_vault_budget_cap_${email}`, budgetCap);
+
       const handler = setTimeout(() => {
         const dataToSync = {
           assets,
           expenses,
+          transactions,
           goals,
           budgets,
+          cycleItems,
+          devaluationItems,
+          devaluationTactics,
+          auditChanges,
+          deploymentItems,
+          budgetCap,
           targetAllocation,
           alerts,
-          budgetCap,
           updatedAt: Date.now(),
         };
         setDoc(doc(db, "users", email, "financialData", "data"), dataToSync, { merge: true })
           .catch(console.error);
-      }, 3000);
+      }, 2000);
 
       return () => clearTimeout(handler);
     }
-  }, [assets, expenses, goals, budgets, targetAllocation, alerts, budgetCap, email]);
+  }, [assets, expenses, transactions, goals, budgets, cycleItems, devaluationItems, devaluationTactics, auditChanges, deploymentItems, budgetCap, targetAllocation, alerts, email]);
 
   // Automated budget sync with expense ledger
   useEffect(() => {
