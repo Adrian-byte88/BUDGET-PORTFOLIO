@@ -22,7 +22,7 @@ interface AssetSleeveTabProps {
     }
   ) => void;
   onDeleteAsset?: (key: string) => void;
-  onAddTrade: (trade: Omit<TradeEntry, 'id'>) => void;
+  onAddTrade?: (trade: Omit<TradeEntry, 'id'>) => void;
   targetAllocation: number;
   onUpdateTargetAllocation: (val: number) => void;
   onExecuteSyncAI: (customKey: string) => Promise<any>;
@@ -67,7 +67,6 @@ export default function AssetSleeveTab({
     if (highlightId.id === 'safe-assets-section') setActiveSubTab('safe');
     else if (highlightId.id === 'risk-assets-section') setActiveSubTab('risk');
     else if (highlightId.id === 'physical-assets-section') setActiveSubTab('physical');
-    else if (highlightId.id === 'trade-entry-section') setShowTradeForm(true);
     else if (highlightId.type === 'Asset') {
       const asset = assets.find(a => a.key === highlightId.id);
       if (asset) {
@@ -75,14 +74,6 @@ export default function AssetSleeveTab({
       }
     }
   }, [highlightId, assets]);
-  
-  // Manual Trade Entry Form
-  const [showTradeForm, setShowTradeForm] = useState(false);
-  const [tradeAssetKey, setTradeAssetKey] = useState('btc');
-  const [tradeAction, setTradeAction] = useState<'BUY' | 'SELL'>('BUY');
-  const [tradeUnits, setTradeUnits] = useState('0.0005');
-  const [tradePricePHP, setTradePricePHP] = useState('');
-  const [tradeNotes, setTradeNotes] = useState('Manual offline trade entry');
 
   // Manual Asset Adjust Modal state
   const [editingAsset, setEditingAsset] = useState<AssetPosition | null>(null);
@@ -145,30 +136,6 @@ export default function AssetSleeveTab({
     }
   };
 
-  const handleTradeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const asset = assets.find((a) => a.key === tradeAssetKey);
-    if (!asset) return;
-
-    const unitsNum = Number(tradeUnits);
-    const priceNum = Number(tradePricePHP) || asset.currentPricePHP;
-    const amountPHP = unitsNum * priceNum;
-
-    onAddTrade({
-      assetKey: tradeAssetKey,
-      assetName: asset.name,
-      action: tradeAction,
-      units: unitsNum,
-      pricePHP: priceNum,
-      amountPHP,
-      date: new Date().toISOString().split('T')[0],
-      notes: tradeNotes,
-    });
-
-    setShowTradeForm(false);
-    setTradePricePHP('');
-  };
-
   const handleEditAssetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAsset) return;
@@ -225,72 +192,6 @@ export default function AssetSleeveTab({
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Manual trade execution form block */}
-      {showTradeForm && (
-        <form onSubmit={handleTradeSubmit} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-6 rounded-xl space-y-4 shadow-sm animate-slide-down">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-            <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Record Manual trade (Offline Sync)</h4>
-            <button type="button" onClick={() => setShowTradeForm(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs">Cancel</button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Select Asset Target</label>
-              <select
-                value={tradeAssetKey}
-                onChange={(e) => setTradeAssetKey(e.target.value)}
-                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none"
-              >
-                {assets.map((a) => (
-                  <option key={a.key} value={a.key}>{a.name} ({a.platform})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Operation</label>
-              <select
-                value={tradeAction}
-                onChange={(e) => setTradeAction(e.target.value as any)}
-                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none"
-              >
-                <option value="BUY">BUY Inflow</option>
-                <option value="SELL">SELL Outflow</option>
-              </select>
-            </div>
-            <div>
-              <SmartCalculatorInput
-                label="Units Count / Volume"
-                value={tradeUnits}
-                onChange={setTradeUnits}
-                currencySymbol=""
-              />
-            </div>
-            <div>
-              <SmartCalculatorInput
-                label="Custom Price (PHP) [Optional]"
-                value={tradePricePHP}
-                onChange={setTradePricePHP}
-                placeholder="Market Rate Default"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5">Audit Trail Note</label>
-            <input
-              type="text"
-              value={tradeNotes}
-              onChange={(e) => setTradeNotes(e.target.value)}
-              className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-xs"
-          >
-            Commit offline trade synchronization
-          </button>
-        </form>
-      )}
-
       {/* Tables layout section with toggle sub-tab */}
       <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-xs">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-white/10">
@@ -338,17 +239,8 @@ export default function AssetSleeveTab({
           </div>
           <div className="p-3 sm:p-0 sm:pr-6 flex flex-wrap items-center gap-2">
             <button
-              id="trade-entry-section"
-              data-highlight-id="trade-entry-section"
-              onClick={() => setShowTradeForm(!showTradeForm)}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all border border-slate-200 dark:border-white/5 shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Record Trade</span>
-            </button>
-            <button
               onClick={() => setShowAssetForm(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-xs"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add New Asset & Risk</span>

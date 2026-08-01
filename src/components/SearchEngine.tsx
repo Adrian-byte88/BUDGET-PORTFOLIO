@@ -46,7 +46,6 @@ const STATIC_INDEX: SearchItem[] = [
   { type: 'Section', name: 'Risk Asset Sleeve (Crypto, PSEi, Global Equities)', id: 'risk-assets-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'bitcoin stocks psei s&p500 global equities crypto risk capital equity' },
   { type: 'Section', name: 'Physical Assets & Illiquid Real Estate', id: 'physical-assets-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'condominium lot real estate property gold vehicle physical illiquid' },
   { type: 'Section', name: 'Market Price Alert Alarms', id: 'market-alerts-section', targetTab: 'audit', subtitle: 'Cycle Audit Section', keywords: 'price alarms alert thresholds notifications upper bound lower bound trigger' },
-  { type: 'Section', name: 'Trade Order Execution & Entry', id: 'trade-entry-section', targetTab: 'assets', subtitle: 'Assets Section', keywords: 'log trade buy sell order entry new holding transaction execution' },
 
   // SECTIONS - EXPENSE LEDGER
   { type: 'Section', name: 'Expense Ledger Outflow Table', id: 'expense-table-section', targetTab: 'ledger', subtitle: 'Ledger Section', keywords: 'expense list transactions outflow table delete adjust log' },
