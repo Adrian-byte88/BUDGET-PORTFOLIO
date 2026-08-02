@@ -13,6 +13,8 @@ import {
 } from './types';
 import Navbar from './components/Navbar';
 import SummaryDashboard from './components/SummaryDashboard';
+import PricingPlanTab from './components/PricingPlanTab';
+import GCashPaymentModal from './components/GCashPaymentModal';
 import AssetSleeveTab from './components/AssetSleeveTab';
 import LedgerTab from './components/LedgerTab';
 import SocialFamilyHub from './components/SocialFamilyHub';
@@ -45,7 +47,7 @@ const DEFAULT_BUDGETS: BudgetLimit[] = [
   { category: 'Other', limitPHP: 3000, spentPHP: 0 },
 ];
 
-const FREE_ALLOWED_TABS = ['dashboard', 'ledger', 'social', 'transactions'] as const;
+const FREE_ALLOWED_TABS = ['dashboard', 'pricing', 'ledger', 'social', 'transactions'] as const;
 
 const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
@@ -300,12 +302,16 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  const accessibleTabs = (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
+  const [isGCashModalOpen, setIsGCashModalOpen] = useState(false);
 
   const [subscriptionTier, setSubscriptionTier] = useState<'free' | 'pro'>(() => {
     if (email === ADMIN_EMAIL) return 'pro';
     return (localStorage.getItem(`wealth_vault_sub_tier_${email}`) as 'free' | 'pro') || 'free';
   });
+
+  const accessibleTabs = (!isAdmin && subscriptionTier === 'free')
+    ? (['dashboard', 'pricing', 'ledger', 'social', 'transactions'] as const)
+    : (['dashboard', 'pricing', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
   useEffect(() => {
     if (email === ADMIN_EMAIL) {
@@ -1470,8 +1476,9 @@ export default function App() {
             {accessibleTabs.map((tab) => {
               const isActive = activeTab === tab;
               const isLocked = !isAdmin && subscriptionTier === 'free' && !FREE_ALLOWED_TABS.includes(tab as any);
-              const titles = {
+              const titles: Record<string, string> = {
                 dashboard: 'Summary Dashboard',
+                pricing: 'Pricing Plan',
                 portfolio: 'My Financial Portfolio',
                 assets: 'Risk & Safe Assets',
                 ledger: 'Expense Ledger',
@@ -1520,6 +1527,19 @@ export default function App() {
             onResyncBudgets={handleResyncBudgets}
             targetAllocation={targetAllocation}
             isAdmin={isAdmin}
+            subscriptionTier={subscriptionTier}
+            onOpenPricing={() => setActiveTab('pricing')}
+          />
+        )}
+
+        {activeTab === 'pricing' && (
+          <PricingPlanTab
+            subscriptionTier={subscriptionTier}
+            isAdmin={isAdmin}
+            userEmail={email}
+            onOpenGCashModal={() => setIsGCashModalOpen(true)}
+            onUpdateSubscriptionTier={handleUpdateSubscriptionTier}
+            onTriggerToast={triggerToast}
           />
         )}
 
@@ -1527,7 +1547,7 @@ export default function App() {
           !isAdmin && subscriptionTier === 'free' ? (
             <ProPaywallOverlay
               tabName="My Financial Portfolio"
-              onUpgrade={() => handleUpdateSubscriptionTier('pro')}
+              onUpgrade={() => setIsGCashModalOpen(true)}
               onGoDashboard={() => setActiveTab('dashboard')}
             />
           ) : (
@@ -1561,7 +1581,7 @@ export default function App() {
           !isAdmin && subscriptionTier === 'free' ? (
             <ProPaywallOverlay
               tabName="Risk & Safe Asset Registry"
-              onUpgrade={() => handleUpdateSubscriptionTier('pro')}
+              onUpgrade={() => setIsGCashModalOpen(true)}
               onGoDashboard={() => setActiveTab('dashboard')}
             />
           ) : (
@@ -1614,7 +1634,7 @@ export default function App() {
           !isAdmin && subscriptionTier === 'free' ? (
             <ProPaywallOverlay
               tabName="Market Cycle Audit"
-              onUpgrade={() => handleUpdateSubscriptionTier('pro')}
+              onUpgrade={() => setIsGCashModalOpen(true)}
               onGoDashboard={() => setActiveTab('dashboard')}
             />
           ) : (
@@ -1675,7 +1695,23 @@ export default function App() {
         onShowToast={triggerToast}
         subscriptionTier={subscriptionTier}
         onUpdateSubscriptionTier={handleUpdateSubscriptionTier}
+        onOpenGCashModal={() => setIsGCashModalOpen(true)}
         isAdmin={isAdmin}
+      />
+
+      {/* GCash Payment Verification Modal */}
+      <GCashPaymentModal
+        isOpen={isGCashModalOpen}
+        onClose={() => setIsGCashModalOpen(false)}
+        userEmail={email || ''}
+        onPaymentSubmitted={(refNo) => {
+          triggerToast(
+            'Payment Verification Pending',
+            `Submitted GCash Ref #${refNo}. Account will be upgraded upon verification by admin.`,
+            'success'
+          );
+        }}
+        onTriggerToast={triggerToast}
       />
 
       {/* Clean elegant bottom footer with Philippine live clock */}

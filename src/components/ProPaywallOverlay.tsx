@@ -99,7 +99,7 @@ export default function ProPaywallOverlay({ tabName, onUpgrade, onGoDashboard }:
             className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold text-sm rounded-2xl shadow-xl hover:shadow-blue-500/25 transition-all transform hover:-translate-y-0.5 flex items-center justify-center space-x-2 cursor-pointer"
           >
             <Crown className="w-4 h-4 text-amber-300 fill-amber-300" />
-            <span>Upgrade to Pro Plan ($9.99/mo)</span>
+            <span>Upgrade via GCash (₱499/mo)</span>
             <ArrowRight className="w-4 h-4 ml-1" />
           </button>
 

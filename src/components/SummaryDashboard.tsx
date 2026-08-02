@@ -27,6 +27,8 @@ interface SummaryDashboardProps {
   onResyncBudgets: () => void;
   targetAllocation: number;
   isAdmin?: boolean;
+  subscriptionTier?: 'free' | 'pro';
+  onOpenPricing?: () => void;
 }
 
 export default function SummaryDashboard({
@@ -37,7 +39,10 @@ export default function SummaryDashboard({
   onResyncBudgets,
   targetAllocation,
   isAdmin = false,
+  subscriptionTier = 'free',
+  onOpenPricing,
 }: SummaryDashboardProps) {
+  const isPro = subscriptionTier === 'pro' || isAdmin;
   const [selectedAssetClass, setSelectedAssetClass] = useState<'all' | 'safe' | 'risk' | 'physical'>('all');
   const [adjustingBudget, setAdjustingBudget] = useState<string | null>(null);
   const [adjustedLimit, setAdjustedLimit] = useState<string>('');
@@ -176,8 +181,36 @@ export default function SummaryDashboard({
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* Target allocation visual banners and warning triggers (Admin Only) */}
-      {isAdmin && (
+      {/* Free Tier Info Banner */}
+      {!isPro && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-900/40 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-600 text-white rounded-xl shrink-0">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+                Free Tier View: Monthly Spend & Category Limits
+              </h4>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                You are viewing expenditure controls. Upgrade to Wealth Vault Pro to unlock Net Worth Analytics, Asset Class Curves & Risk Sleeve Engines.
+              </p>
+            </div>
+          </div>
+          {onOpenPricing && (
+            <button
+              onClick={onOpenPricing}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl shrink-0 shadow-xs transition-all cursor-pointer flex items-center space-x-1.5"
+            >
+              <span>Upgrade to Pro</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Target allocation visual banners and warning triggers (Pro / Admin Only) */}
+      {isPro && (
       <div id="net-worth-summary" data-highlight-id="net-worth-summary" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-5 relative overflow-hidden transition-all duration-300 hover:-translate-y-0.5 shadow-xs group">
           <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest mb-1.5">Asset Net Worth</p>
@@ -238,8 +271,8 @@ export default function SummaryDashboard({
       </div>
       )}
 
-      {/* Main Historical Asset performance analysis graphs (Admin Only) */}
-      {isAdmin && (
+      {/* Main Historical Asset performance analysis graphs (Pro / Admin Only) */}
+      {isPro && (
       <div id="asset-allocation-section" data-highlight-id="asset-allocation-section" className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-xl p-6 sm:p-8 flex flex-col justify-between shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4 mb-6 gap-4">

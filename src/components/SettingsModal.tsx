@@ -42,6 +42,7 @@ interface SettingsModalProps {
   onShowToast: (title: string, desc: string, type: 'success' | 'warning' | 'error') => void;
   subscriptionTier?: 'free' | 'pro';
   onUpdateSubscriptionTier?: (tier: 'free' | 'pro') => void;
+  onOpenGCashModal?: () => void;
   isAdmin?: boolean;
 }
 
@@ -73,6 +74,7 @@ export default function SettingsModal({
   onShowToast,
   subscriptionTier = 'free',
   onUpdateSubscriptionTier,
+  onOpenGCashModal,
   isAdmin = false
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'preferences' | 'export'>(defaultTab);
@@ -463,12 +465,15 @@ export default function SettingsModal({
                   </p>
                 </div>
 
-                {!isAdmin && onUpdateSubscriptionTier && (
+                {!isAdmin && (
                   <button
                     type="button"
                     onClick={() => {
-                      const nextTier = subscriptionTier === 'pro' ? 'free' : 'pro';
-                      onUpdateSubscriptionTier(nextTier);
+                      if (subscriptionTier === 'free') {
+                        if (onOpenGCashModal) onOpenGCashModal();
+                      } else {
+                        if (onUpdateSubscriptionTier) onUpdateSubscriptionTier('free');
+                      }
                     }}
                     className={`px-4 py-2 rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer whitespace-nowrap flex items-center space-x-1.5 ${
                       subscriptionTier === 'pro'
@@ -477,7 +482,7 @@ export default function SettingsModal({
                     }`}
                   >
                     <Crown className="w-3.5 h-3.5 text-amber-300" />
-                    <span>{subscriptionTier === 'pro' ? 'Switch to Free Tier' : 'Upgrade to Pro ($9.99/mo)'}</span>
+                    <span>{subscriptionTier === 'pro' ? 'Switch to Free Tier' : 'Upgrade via GCash (₱499/mo)'}</span>
                   </button>
                 )}
               </div>
