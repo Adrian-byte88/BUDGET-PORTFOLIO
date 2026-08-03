@@ -627,6 +627,22 @@ export default function MyFinancialPortfolio({
     ? 'UNDERWEIGHT'
     : 'ALIGNED';
 
+  // Total Safe Shield Protection Gains & Yield Math
+  const totalSafeCostBasis = safeAssets.reduce((sum, a) => sum + getAssetValuation(a).principal, 0);
+  const totalSafeGainsLoss = safeAssets.reduce((sum, a) => sum + getAssetValuation(a).interestEarned, 0);
+  const totalSafeGainsLossPct = totalSafeCostBasis > 0 ? (totalSafeGainsLoss / totalSafeCostBasis) * 100 : 0;
+
+  // Total Risk Sleeve Gains & Losses Math
+  const totalRiskCostBasis = riskAssets.reduce((sum, a) => sum + getAssetValuation(a).principal, 0);
+  const totalRiskGainsLoss = riskAssets.reduce((sum, a) => sum + getAssetValuation(a).interestEarned, 0);
+  const totalRiskGainsLossPct = totalRiskCostBasis > 0 ? (totalRiskGainsLoss / totalRiskCostBasis) * 100 : 0;
+
+  // Combined Total Overall Gain / Loss Math (Safe Shield + Risk Sleeve)
+  const totalOverallCostBasis = totalSafeCostBasis + totalRiskCostBasis;
+  const totalOverallValuation = totalSafeShield + totalRiskSleeve;
+  const totalOverallGainsLoss = totalSafeGainsLoss + totalRiskGainsLoss;
+  const totalOverallGainsLossPct = totalOverallCostBasis > 0 ? (totalOverallGainsLoss / totalOverallCostBasis) * 100 : 0;
+
   // 3. SALARY DILUTION & EMERGENCY SAFEGUARD MATH AUDIT
   const targetPortfolioSize = targetRisk > 0 ? totalRiskSleeve / (targetRisk / 100) : 0;
   const targetSafeShieldValue = targetPortfolioSize * (targetSafe / 100);
@@ -916,6 +932,148 @@ export default function MyFinancialPortfolio({
 
       </div>
 
+      {/* OVERALL GAIN / LOSS PERFORMANCE SUMMARY (SAFE SHIELD + RISK SLEEVE) */}
+      <div id="overall-performance-section" className="bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 text-slate-900 dark:text-white rounded-2xl p-6 sm:p-8 shadow-sm dark:shadow-xl border border-slate-200 dark:border-indigo-500/20 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-indigo-500/20 pb-5">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-400/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-black uppercase tracking-widest rounded-full">
+                Combined Portfolio Performance Engine
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-2 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <span>Overall Gain & Loss: Safe Shield Protection + Risk Sleeve Growth</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-indigo-200/70 mt-1">
+              Consolidated calculation using live valuations across Total Safe Shield Protection & Total Risk Sleeve Growth
+            </p>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3 px-5 text-right shrink-0">
+            <span className="text-[10px] font-bold text-slate-500 dark:text-indigo-200/60 uppercase tracking-widest block">Total Net Portfolio Gain / Loss</span>
+            <div className={`text-xl sm:text-2xl font-black font-mono mt-0.5 ${
+              totalOverallGainsLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+            }`}>
+              {totalOverallGainsLoss >= 0 ? '+' : ''}₱{totalOverallGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-xs font-bold ml-2">
+                ({totalOverallGainsLossPct >= 0 ? '+' : ''}{totalOverallGainsLossPct.toFixed(2)}%)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3 Grid Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Safe Shield Protection */}
+          <div className="bg-slate-50/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-400 dark:hover:border-blue-500/40 rounded-xl p-5 space-y-3 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span>1. Safe Shield Protection</span>
+              </span>
+              <span className="text-[10px] font-mono text-slate-500 dark:text-indigo-200/60 font-bold">{safeAssets.length} Assets</span>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-200/80 dark:border-white/10">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-300">Total Principal (Cost):</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  ₱{totalSafeCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-300">Total Safe Valuation:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  ₱{totalSafeShield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200/80 dark:border-white/10">
+                <span className="font-bold text-slate-800 dark:text-slate-200">Safe Shield Interest Yield:</span>
+                <span className={`font-mono font-black ${
+                  totalSafeGainsLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                }`}>
+                  {totalSafeGainsLoss >= 0 ? '+' : ''}₱{totalSafeGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-[10px] ml-1">({totalSafeGainsLossPct >= 0 ? '+' : ''}{totalSafeGainsLossPct.toFixed(2)}%)</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Risk Sleeve Growth */}
+          <div className="bg-slate-50/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-indigo-400 dark:hover:border-indigo-500/40 rounded-xl p-5 space-y-3 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-indigo-600 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>2. Risk Sleeve Growth</span>
+              </span>
+              <span className="text-[10px] font-mono text-slate-500 dark:text-indigo-200/60 font-bold">{riskAssets.length} Assets</span>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-slate-200/80 dark:border-white/10">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-300">Total Cost Basis:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  ₱{totalRiskCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-300">Total Risk Valuation:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  ₱{totalRiskSleeve.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs pt-1 border-t border-slate-200/80 dark:border-white/10">
+                <span className="font-bold text-slate-800 dark:text-slate-200">Risk Sleeve Net Gain / Loss:</span>
+                <span className={`font-mono font-black ${
+                  totalRiskGainsLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                }`}>
+                  {totalRiskGainsLoss >= 0 ? '+' : ''}₱{totalRiskGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-[10px] ml-1">({totalRiskGainsLossPct >= 0 ? '+' : ''}{totalRiskGainsLossPct.toFixed(2)}%)</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Total Overall Combined */}
+          <div className="bg-emerald-50/70 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-xl p-5 space-y-3 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>3. Combined Total Portfolio</span>
+              </span>
+              <span className="text-[10px] font-mono text-emerald-700/80 dark:text-emerald-300/80 font-bold">Safe + Risk</span>
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-emerald-200 dark:border-emerald-500/20">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-300">Combined Cost Basis:</span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  ₱{totalOverallCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-600 dark:text-slate-300">Combined Valuation:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  ₱{totalOverallValuation.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-xs pt-1 border-t border-emerald-200 dark:border-emerald-500/20">
+                <span className="font-bold text-slate-900 dark:text-white">Overall Portfolio Gain / Loss:</span>
+                <span className={`font-mono font-black text-sm text-right ${
+                  totalOverallGainsLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                }`}>
+                  {totalOverallGainsLoss >= 0 ? '+' : ''}₱{totalOverallGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-xs font-bold block">
+                    ({totalOverallGainsLossPct >= 0 ? '+' : ''}{totalOverallGainsLossPct.toFixed(2)}%)
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 2. THE 85/15 ALLOCATION ARCHITECTURE TABLES */}
       <div id="portfolio-table-section" data-highlight-id="portfolio-table-section" className="space-y-6">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-xs">
@@ -936,6 +1094,7 @@ export default function MyFinancialPortfolio({
                   <th className="py-4 pl-5">Tier</th>
                   <th className="py-4">Assets Included</th>
                   <th className="py-4 text-right">Current Value</th>
+                  <th className="py-4 text-right">Net Yield / Gain</th>
                   <th className="py-4 text-right">Weight %</th>
                   <th className="py-4 text-right">Target %</th>
                   <th className="py-4 text-center pr-5">Status</th>
@@ -947,6 +1106,11 @@ export default function MyFinancialPortfolio({
                   <td className="py-4 text-xs text-slate-600 dark:text-slate-300">Savings + TDs + Loan ({safeAssets.length} active)</td>
                   <td className="py-4 text-xs font-mono font-bold text-right text-slate-900 dark:text-white">
                     ₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="py-4 text-xs font-mono font-bold text-right">
+                    <span className={`text-[11px] ${totalSafeGainsLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {totalSafeGainsLoss >= 0 ? '+' : ''}₱{totalSafeGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({totalSafeGainsLossPct >= 0 ? '+' : ''}{totalSafeGainsLossPct.toFixed(2)}%)
+                    </span>
                   </td>
                   <td className="py-4 text-xs font-mono font-bold text-right">{safeWeight.toFixed(2)}%</td>
                   <td className="py-4 text-xs font-mono text-right text-slate-400">85.0%</td>
@@ -965,6 +1129,11 @@ export default function MyFinancialPortfolio({
                   <td className="py-4 text-xs text-slate-600 dark:text-slate-300">Crypto, Stocks, REITs ({riskAssets.length} active)</td>
                   <td className="py-4 text-xs font-mono font-bold text-right text-slate-900 dark:text-white">
                     ₱{totalRiskSleeve.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="py-4 text-xs font-mono font-bold text-right">
+                    <span className={`text-[11px] ${totalRiskGainsLoss >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {totalRiskGainsLoss >= 0 ? '+' : ''}₱{totalRiskGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({totalRiskGainsLossPct >= 0 ? '+' : ''}{totalRiskGainsLossPct.toFixed(2)}%)
+                    </span>
                   </td>
                   <td className="py-4 text-xs font-mono font-bold text-right">{riskWeight.toFixed(2)}%</td>
                   <td className="py-4 text-xs font-mono text-right text-slate-400">15.0%</td>
@@ -986,6 +1155,7 @@ export default function MyFinancialPortfolio({
                   </td>
                   <td className="py-4 text-xs font-mono text-right text-slate-400">-</td>
                   <td className="py-4 text-xs font-mono text-right text-slate-400">-</td>
+                  <td className="py-4 text-xs font-mono text-right text-slate-400">-</td>
                   <td className="py-4 text-center pr-5">
                     <span className="px-2.5 py-1 text-[9px] font-extrabold rounded-md bg-purple-100 text-purple-800 dark:bg-purple-500/10 dark:text-purple-400">
                       PHYSICAL
@@ -1000,6 +1170,7 @@ export default function MyFinancialPortfolio({
                   </td>
                   <td className="py-4 text-xs font-mono text-right text-slate-400">-</td>
                   <td className="py-4 text-xs font-mono text-right text-slate-400">-</td>
+                  <td className="py-4 text-xs font-mono text-right text-slate-400">-</td>
                   <td className="py-4 text-center pr-5">
                     <span className="px-2.5 py-1 text-[9px] font-extrabold rounded-md bg-rose-100 text-rose-800 dark:bg-rose-500/10 dark:text-rose-400">
                       OUTFLOW DEBT
@@ -1008,13 +1179,32 @@ export default function MyFinancialPortfolio({
                 </tr>
               </tbody>
               <tfoot className="bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-white/10 font-bold">
+                <tr className="bg-indigo-500/5">
+                  <td className="py-4 pl-5 text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
+                    Overall Portfolio Net Gain / Loss
+                  </td>
+                  <td className="py-4 text-[10px] text-slate-500 dark:text-slate-400">Safe Shield + Risk Sleeve</td>
+                  <td className="py-4 text-xs font-mono font-black text-right text-slate-900 dark:text-white">
+                    ₱{totalOverallValuation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="py-4 text-xs font-mono font-black text-right">
+                    <span className={`px-2 py-0.5 text-[10px] font-black rounded ${
+                      totalOverallGainsLoss >= 0
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-400 border border-rose-300 dark:border-rose-500/30'
+                    }`}>
+                      {totalOverallGainsLoss >= 0 ? '+' : ''}₱{totalOverallGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({totalOverallGainsLossPct >= 0 ? '+' : ''}{totalOverallGainsLossPct.toFixed(2)}%)
+                    </span>
+                  </td>
+                  <td colSpan={3} className="py-4"></td>
+                </tr>
                 <tr className="bg-blue-500/5">
                   <td className="py-4 pl-5 text-xs font-black text-blue-600 dark:text-teal-400 uppercase tracking-widest">Calculated Real-Time Net Worth</td>
                   <td className="py-4 text-[10px] text-slate-500 dark:text-slate-400">Net Worth Valuation</td>
                   <td className="py-4 text-sm font-mono font-black text-right text-blue-600 dark:text-teal-400">
                     ₱{netWorth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
-                  <td colSpan={3} className="py-4"></td>
+                  <td colSpan={4} className="py-4"></td>
                 </tr>
               </tfoot>
             </table>
@@ -1187,6 +1377,27 @@ export default function MyFinancialPortfolio({
                   </td>
                 </tr>
               </tbody>
+              <tfoot className="bg-slate-50 dark:bg-slate-950/80 border-t-2 border-slate-200 dark:border-white/10 font-bold">
+                <tr>
+                  <td colSpan={2} className="py-3.5 pl-5 text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                    🚀 Total Risk Sleeve Growth Gains/Loss
+                  </td>
+                  <td className="py-3.5 text-xs font-mono font-black text-right text-slate-900 dark:text-white">
+                    ₱{totalRiskSleeve.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                  <td className="py-3.5 text-xs font-mono font-black text-right">{riskWeight.toFixed(2)}%</td>
+                  <td className="py-3.5 text-xs font-mono font-bold text-right pr-4 text-slate-400">{(targetCryptoGoldOfTotal + targetReitOfTotal + targetStockOfTotal).toFixed(2)}%</td>
+                  <td className="py-3.5 text-center pr-5">
+                    <span className={`px-2.5 py-1 text-[9px] font-black rounded ${
+                      totalRiskGainsLoss >= 0
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30'
+                        : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-400 border border-rose-300 dark:border-rose-500/30'
+                    }`}>
+                      {totalRiskGainsLoss >= 0 ? '+' : ''}₱{totalRiskGainsLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({totalRiskGainsLossPct >= 0 ? '+' : ''}{totalRiskGainsLossPct.toFixed(2)}%)
+                    </span>
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>

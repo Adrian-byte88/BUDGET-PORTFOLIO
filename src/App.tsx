@@ -107,9 +107,20 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     platform: 'COL Financial',
     units: 5000,
     currentPricePHP: 32.5,
-    costBasisPHP: 30.0,
+    costBasisPHP: 150000,
     assetType: 'equity',
     change24h: -0.45
+  },
+  {
+    key: 'spc',
+    name: 'SPC Power Corporation (SPC)',
+    class: 'risk',
+    platform: 'DragonFi / COL Financial',
+    units: 10000,
+    currentPricePHP: 10.70,
+    costBasisPHP: 98500,
+    assetType: 'equity',
+    change24h: 0.47
   },
   {
     key: 'rcr',
@@ -118,9 +129,20 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     platform: 'First Metro Sec',
     units: 20000,
     currentPricePHP: 5.40,
-    costBasisPHP: 5.10,
+    costBasisPHP: 102000,
     assetType: 'equity',
     change24h: 0.18
+  },
+  {
+    key: 'manulife',
+    name: 'Manulife Asia Pacific REIT Fund',
+    class: 'risk',
+    platform: 'Manulife Trust',
+    units: 2000,
+    currentPricePHP: 51.12,
+    costBasisPHP: 100000,
+    assetType: 'equity',
+    change24h: 0.25
   },
   {
     key: 'realestate',

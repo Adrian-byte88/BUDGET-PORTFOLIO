@@ -427,8 +427,81 @@ export default function AssetSleeveTab({
                 );
               })}
             </tbody>
+            <tfoot className="bg-slate-50 dark:bg-slate-900/90 border-t-2 border-slate-200 dark:border-white/10 font-bold">
+              <tr>
+                <td colSpan={5} className="p-5 pl-8 text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                  {activeSubTab === 'risk' ? '🚀 Total Risk Sleeve Growth' :
+                   activeSubTab === 'safe' ? '🛡️ Total Safe Shield Protection' :
+                   activeSubTab === 'physical' ? '🏠 Total Physical Assets' : '💸 Total Liabilities & Debt'}
+                </td>
+                <td className="p-5 text-right text-xs font-mono font-black text-slate-600 dark:text-slate-400">
+                  ₱{(activeSubTab === 'safe' ? safeAssets : activeSubTab === 'risk' ? riskAssets : activeSubTab === 'physical' ? physicalAssets : liabilityAssets).reduce((sum, a) => sum + getAssetValuation(a).principal, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td className="p-5 text-right">
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                      ₱{(activeSubTab === 'safe' ? totalSafeValue : activeSubTab === 'risk' ? totalRiskValue : activeSubTab === 'physical' ? totalPhysicalValue : totalLiabilityValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    {(() => {
+                      const list = activeSubTab === 'safe' ? safeAssets : activeSubTab === 'risk' ? riskAssets : activeSubTab === 'physical' ? physicalAssets : liabilityAssets;
+                      const totalCost = list.reduce((sum, a) => sum + getAssetValuation(a).principal, 0);
+                      const totalVal = list.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+                      const gains = totalVal - totalCost;
+                      const gainsPct = totalCost > 0 ? (gains / totalCost) * 100 : 0;
+                      return (
+                        <span className={`text-[11px] font-black font-mono mt-0.5 ${gains >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                          {gains >= 0 ? '+' : ''}₱{gains.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Total Gains/Loss ({gainsPct >= 0 ? '+' : ''}{gainsPct.toFixed(2)}%)
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </td>
+                <td className="p-5 pr-8"></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
+
+        {activeSubTab === 'risk' && (
+          <div className="bg-indigo-50/70 dark:bg-indigo-950/30 border-t border-indigo-200/80 dark:border-indigo-800/40 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-xl text-lg shrink-0">
+                🚀
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  Risk Sleeve Growth — Total Gains & Performance
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Aggregate unrealized net gain/loss performance across SPC Power, SCC Energy, RCR REIT, Manulife, BTC & PAXG Gold
+                </p>
+              </div>
+            </div>
+            {(() => {
+              const totalCost = riskAssets.reduce((sum, a) => sum + getAssetValuation(a).principal, 0);
+              const totalVal = totalRiskValue;
+              const gains = totalVal - totalCost;
+              const gainsPct = totalCost > 0 ? (gains / totalCost) * 100 : 0;
+              return (
+                <div className="flex items-center gap-4 bg-white dark:bg-slate-900 p-3 px-4 rounded-xl border border-indigo-200 dark:border-indigo-800/40 shadow-xs shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Risk Valuation</span>
+                    <span className="text-sm font-black font-mono text-slate-900 dark:text-white">
+                      ₱{totalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Gains / Loss</span>
+                    <span className={`text-sm font-black font-mono ${gains >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {gains >= 0 ? '+' : ''}₱{gains.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({gainsPct >= 0 ? '+' : ''}{gainsPct.toFixed(2)}%)
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* Adjust holdings modal dialog */}
