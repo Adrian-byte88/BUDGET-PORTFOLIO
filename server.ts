@@ -38,14 +38,14 @@ const CLOUD_BACKUPS: Record<string, BackupPayload> = {};
 
 // Active market rates store that fluctuates dynamically over time
 const MARKET_PRICES = {
-  USD_PHP: 61.42,
-  BTC_USD: 60753.12,
-  GOLD_USD: 4005.69,
-  PAXG_USD: 4005.69,
-  SCC_PHP: 23.05,
+  USD_PHP: 58.25,
+  BTC_USD: 65420.00,
+  GOLD_USD: 2480.00,
+  PAXG_USD: 2480.00,
+  SCC_PHP: 32.50,
   SPC_PHP: 10.70,
-  RCR_PHP: 7.05,
-  MANULIFE_PHP: 51.1176,
+  RCR_PHP: 5.40,
+  MANULIFE_PHP: 51.12,
 };
 
 // Simple helper to introduce random-walk price fluctuations for live real-time simulation
@@ -241,13 +241,13 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
       cycleItems: [
         { id: 'cy-1', asset: 'Bitcoin (BTC)', phase: 'Bull Market Consolidation', sentiment: 'Bullish', logic: 'Consolidating above support levels in mid-2026. Spot inflows steady.' },
         { id: 'cy-2', asset: 'PAX Gold (PAXG)', phase: 'Safe-Haven Peak', sentiment: 'Bullish', logic: 'Gold trading at record highs amid central bank hoarding and global hedge interest.' },
-        { id: 'cy-3', asset: 'REITs (RCR / Manulife)', phase: 'Yield Compression Recovery', sentiment: 'Neutral', logic: 'Stabilizing dividend yields as inflation trends downward to 6.4% in the Philippines.' },
+        { id: 'cy-3', asset: 'REITs (RCR / Manulife)', phase: 'Yield Compression Recovery', sentiment: 'Neutral', logic: 'Stabilizing dividend yields as inflation trends downward to 3.4% in the Philippines.' },
         { id: 'cy-4', asset: 'PSE Equities (SCC / SPC)', phase: 'Value Consolidation', sentiment: 'Bearish', logic: 'SCC Energy faces mild price correction on softer thermal coal indices; SPC is solid yield play.' },
       ],
       devaluationItems: [
-        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: '₱61.62 per USD', portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Partially Protected', statusType: 'caution' },
-        { id: 'de-2', indicator: 'PH Inflation Rate', marketRef: '6.4% Headline', portfolioExposure: 'Time Deposits at 6% p.a.', hedgeStatus: 'Neutralizing real yield gap', statusType: 'neutral' },
-        { id: 'de-3', indicator: 'BSP Interest Policy', marketRef: 'Target rate steady', portfolioExposure: 'Liquid cash positions', hedgeStatus: 'Optimized high-yield savings (5% p.a.)', statusType: 'aligned' },
+        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: '₱58.25 per USD', portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Protected via USD proxy assets', statusType: 'aligned' },
+        { id: 'de-2', indicator: 'PH Inflation Rate', marketRef: '3.4% Headline', portfolioExposure: 'Time Deposits / Maya HYS', hedgeStatus: 'Yield outpacing inflation rate', statusType: 'aligned' },
+        { id: 'de-3', indicator: 'BSP Interest Policy', marketRef: '6.50% Target Policy Rate', portfolioExposure: 'Liquid cash positions', hedgeStatus: 'Optimized high-yield savings (5%-6% p.a.)', statusType: 'aligned' },
       ],
       deploymentItems: [
         { id: 'dp-1', date: 'Aug 15', asset: 'HYS Savings', amount: '₱12,000.00', status: 'PROCEED', description: 'Direct 100% of cash surplus to shore up the defensive shield.' },
@@ -339,13 +339,13 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
       cycleItems: [
         { id: 'cy-1', asset: 'Bitcoin (BTC)', phase: 'Bull Market Consolidation', sentiment: 'Bullish', logic: 'Consolidating above support levels in mid-2026. Spot inflows steady.' },
         { id: 'cy-2', asset: 'PAX Gold (PAXG)', phase: 'Safe-Haven Peak', sentiment: 'Bullish', logic: 'Gold trading at record highs amid central bank hoarding and global hedge interest.' },
-        { id: 'cy-3', asset: 'REITs (RCR / Manulife)', phase: 'Yield Compression Recovery', sentiment: 'Neutral', logic: 'Stabilizing dividend yields as inflation trends downward to 6.4% in the Philippines.' },
+        { id: 'cy-3', asset: 'REITs (RCR / Manulife)', phase: 'Yield Compression Recovery', sentiment: 'Neutral', logic: 'Stabilizing dividend yields as inflation trends downward to 3.4% in the Philippines.' },
         { id: 'cy-4', asset: 'PSE Equities (SCC / SPC)', phase: 'Value Consolidation', sentiment: 'Bearish', logic: 'SCC Energy faces mild price correction on softer thermal coal indices; SPC is solid yield play.' },
       ],
       devaluationItems: [
-        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: '₱61.62 per USD', portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Partially Protected', statusType: 'caution' },
-        { id: 'de-2', indicator: 'PH Inflation Rate', marketRef: '6.4% Headline', portfolioExposure: 'Time Deposits at 6% p.a.', hedgeStatus: 'Neutralizing real yield gap', statusType: 'neutral' },
-        { id: 'de-3', indicator: 'BSP Interest Policy', marketRef: 'Target rate steady', portfolioExposure: 'Liquid cash positions', hedgeStatus: 'Optimized high-yield savings (5% p.a.)', statusType: 'aligned' },
+        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: '₱58.25 per USD', portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Protected via USD proxy assets', statusType: 'aligned' },
+        { id: 'de-2', indicator: 'PH Inflation Rate', marketRef: '3.4% Headline', portfolioExposure: 'Time Deposits / Maya HYS', hedgeStatus: 'Yield outpacing inflation rate', statusType: 'aligned' },
+        { id: 'de-3', indicator: 'BSP Interest Policy', marketRef: '6.50% Target Policy Rate', portfolioExposure: 'Liquid cash positions', hedgeStatus: 'Optimized high-yield savings (5%-6% p.a.)', statusType: 'aligned' },
       ],
       deploymentItems: [
         { id: 'dp-1', date: 'Aug 15', asset: 'HYS Savings', amount: '₱12,000.00', status: 'PROCEED', description: 'Direct 100% of cash surplus to shore up the defensive shield.' },
