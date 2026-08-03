@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Crown, X, Copy, Check, QrCode, ShieldCheck, Send, AlertCircle, Clock, Sparkles } from 'lucide-react';
 import { doc, setDoc, collection, addDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface GCashPaymentModalProps {
   isOpen: boolean;
@@ -88,7 +88,7 @@ export default function GCashPaymentModal({
         onPaymentSubmitted(cleanRef);
       }
     } catch (err) {
-      console.error("Error submitting GCash reference:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'payment_submissions');
       if (onTriggerToast) {
         onTriggerToast('Submission Error', 'Failed to save reference number. Please try again.', 'error');
       }

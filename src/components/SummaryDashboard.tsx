@@ -302,8 +302,8 @@ export default function SummaryDashboard({
             </div>
           </div>
 
-          <div className="h-72 w-full text-xs font-mono">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-72 w-full text-xs font-mono min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <LineChart data={historicalChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
                 <XAxis dataKey="period" stroke="#64748b" />
@@ -335,8 +335,8 @@ export default function SummaryDashboard({
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">Proportional distribution ratios across liquid, volatile, and fixed indexes</p>
           </div>
 
-          <div className="relative h-48 flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="relative h-48 w-full min-w-0 flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={pieData}
@@ -471,8 +471,8 @@ export default function SummaryDashboard({
             </div>
           </div>
 
-          <div className="h-80 w-full text-xs font-mono">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-80 w-full text-xs font-mono min-w-0">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={monthlySpendData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
                 <XAxis dataKey="month" stroke="#64748b" />

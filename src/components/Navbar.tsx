@@ -20,6 +20,7 @@ interface NavbarProps {
   onOpenSettings: (tab?: 'profile' | 'preferences' | 'export') => void;
   subscriptionTier?: 'free' | 'pro';
   isAdmin?: boolean;
+  onOpenPricing?: () => void;
 }
 
 export default function Navbar({
@@ -37,6 +38,7 @@ export default function Navbar({
   onOpenSettings,
   subscriptionTier = 'free',
   isAdmin = false,
+  onOpenPricing,
 }: NavbarProps) {
   const [showAlerts, setShowAlerts] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -97,10 +99,14 @@ export default function Navbar({
         <div className="hidden md:flex items-center space-x-4">
           <SearchEngine assets={assets} expenses={expenses} goals={goals} budgets={budgets} onSelect={onSelect} />
           
-          <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-200/80 dark:border-white/5">
-            <Wifi className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 animate-pulse" />
-            <span className="text-[10px] text-slate-600 dark:text-slate-400 font-semibold uppercase tracking-wider">Cloud Synchronized</span>
-          </div>
+          <button
+            onClick={onOpenPricing}
+            className="flex items-center space-x-1.5 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 hover:from-blue-500/20 hover:to-indigo-500/20 px-3 py-1.5 rounded-full border border-blue-500/20 text-blue-700 dark:text-blue-300 transition-all cursor-pointer shadow-2xs hover:scale-105"
+            title="View Membership & Pricing Plans"
+          >
+            <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider">Pricing Plan</span>
+          </button>
 
           <button
             onClick={onToggleDarkMode}

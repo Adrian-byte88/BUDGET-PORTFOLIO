@@ -825,8 +825,8 @@ export default function MyFinancialPortfolio({
             <p className="text-[10px] text-slate-500 dark:text-slate-400">Visualization of current sector book valuation</p>
           </div>
 
-          <div className="h-64 relative flex items-center justify-center my-4">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-w-0 relative flex items-center justify-center my-4">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={pieChartData}
@@ -877,8 +877,8 @@ export default function MyFinancialPortfolio({
             <p className="text-[10px] text-slate-500 dark:text-slate-400">Discrepancy audit in Core Tiers & Pillars</p>
           </div>
 
-          <div className="h-64 my-4">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-w-0 my-4">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart
                 data={[
                   { name: 'Safe Shield', Current: Number(safeWeight.toFixed(2)), Target: targetSafe },

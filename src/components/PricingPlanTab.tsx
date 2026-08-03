@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Crown, CheckCircle2, QrCode, Copy, Check, Send, Clock, ShieldCheck, Sparkles, Layers, Activity, PieChart, ArrowRight, User, AlertCircle } from 'lucide-react';
 import { collection, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 
 interface PricingPlanTabProps {
   subscriptionTier: 'free' | 'pro';
@@ -51,7 +51,7 @@ export default function PricingPlanTab({
       list.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
       setPendingSubmissions(list);
     }, (err) => {
-      console.error("Error fetching payment submissions:", err);
+      handleFirestoreError(err, OperationType.LIST, 'payment_submissions');
     });
     return () => unsub();
   }, [isAdmin]);

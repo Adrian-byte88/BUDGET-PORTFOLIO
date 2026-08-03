@@ -310,8 +310,14 @@ export default function App() {
   });
 
   const accessibleTabs = (!isAdmin && subscriptionTier === 'free')
-    ? (['dashboard', 'pricing', 'ledger', 'social', 'transactions'] as const)
-    : (['dashboard', 'pricing', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
+    ? (['dashboard', 'ledger', 'social', 'transactions'] as const)
+    : (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
+
+  useEffect(() => {
+    if (!isAdmin && subscriptionTier === 'free' && !FREE_ALLOWED_TABS.includes(activeTab as any)) {
+      setActiveTab('dashboard');
+    }
+  }, [subscriptionTier, isAdmin, activeTab]);
 
   useEffect(() => {
     if (email === ADMIN_EMAIL) {
@@ -1437,6 +1443,7 @@ export default function App() {
         }}
         subscriptionTier={subscriptionTier}
         isAdmin={isAdmin}
+        onOpenPricing={() => setActiveTab('pricing')}
       />
 
       {/* Toast Notification Container */}

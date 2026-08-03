@@ -58,8 +58,23 @@ export default function SocialFamilyHub({
   const [goalTarget, setGoalTarget] = useState('50000');
   const [goalDeadline, setGoalDeadline] = useState('2026-12-31');
 
-  // Shared Invite Code State
-  const [inviteCode, setInviteCode] = useState('VAULT-FAMILY-78X9');
+  // Shared Invite Code State - unique per user
+  const [inviteCode, setInviteCode] = useState(() => {
+    const storageKey = `vault_user_invite_key_${userEmail || 'default'}`;
+    const savedKey = localStorage.getItem(storageKey);
+    if (savedKey) return savedKey;
+
+    const emailHash = Math.abs((userEmail || 'user').split('').reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0), 0))
+      .toString(36)
+      .toUpperCase()
+      .padStart(4, 'X')
+      .slice(0, 4);
+
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const newCode = `FAMILY-${emailHash}-${randomSuffix}`;
+    localStorage.setItem(storageKey, newCode);
+    return newCode;
+  });
   const [copied, setCopied] = useState(false);
 
   // Goal Contribution form state
@@ -318,7 +333,7 @@ export default function SocialFamilyHub({
                 <UserCheck className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Join Admin Vault</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Join Family Vault</h3>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">Connect to shared family goal tracking</p>
               </div>
             </div>
@@ -392,14 +407,15 @@ export default function SocialFamilyHub({
 
             <button
               onClick={() => {
-                const parts = ['A', 'B', 'C', 'X', 'Y', 'Z', '9', '8', '7'];
-                const code = 'VAULT-FAMILY-' + Array.from({ length: 4 }, () => parts[Math.floor(Math.random() * parts.length)]).join('');
+                const parts = ['A', 'B', 'C', 'X', 'Y', 'Z', '9', '8', '7', '5', '3'];
+                const code = 'FAMILY-' + Array.from({ length: 4 }, () => parts[Math.floor(Math.random() * parts.length)]).join('') + '-' + Math.floor(1000 + Math.random() * 9000);
+                localStorage.setItem(`vault_user_invite_key_${userEmail || 'default'}`, code);
                 setInviteCode(code);
               }}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold uppercase flex items-center justify-center space-x-1.5 border border-slate-200 dark:border-white/5 shadow-xs"
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold uppercase flex items-center justify-center space-x-1.5 border border-slate-200 dark:border-white/5 shadow-xs cursor-pointer"
             >
               <Share2 className="w-4 h-4 text-emerald-600 dark:text-teal-400" />
-              <span>Regenerate group key</span>
+              <span>Regenerate My Unique Key</span>
             </button>
           </div>
         </div>
