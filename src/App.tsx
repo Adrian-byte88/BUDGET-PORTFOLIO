@@ -182,7 +182,7 @@ const DEFAULT_ALERTS: MarketAlert[] = [
     id: 'alert-usd-php',
     timestamp: '1h ago',
     asset: 'USD/PHP Rate',
-    message: 'Bangko Sentral ng Pilipinas maintains policy interest rate; USD/PHP stabilizes around ₱58.20.',
+    message: 'Bangko Sentral ng Pilipinas maintains policy interest rate; USD/PHP spot rate tracks around ₱61.24.',
     type: 'info',
     lastTriggeredDate: new Date(Date.now() - 60 * 60 * 1000).toISOString()
   },
@@ -220,8 +220,27 @@ export default function App() {
   const [goals, setGoals] = useState<FamilyGoal[]>([]);
   const [budgets, setBudgets] = useState<BudgetLimit[]>(DEFAULT_BUDGETS);
   const [alerts, setAlerts] = useState<MarketAlert[]>(DEFAULT_ALERTS);
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ 'USD': 58.25 });
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ 'USD': 61.24 });
   const [targetAllocation, setTargetAllocation] = useState<number>(85);
+
+  // Client-side direct live FX fetch on mount to guarantee real-time market rate
+  useEffect(() => {
+    const fetchDirectLiveFx = async () => {
+      try {
+        const res = await fetch('https://open.er-api.com/v6/latest/USD');
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.rates?.PHP) {
+            const livePhp = Number(data.rates.PHP.toFixed(4));
+            setExchangeRates((prev) => ({ ...prev, USD: livePhp }));
+          }
+        }
+      } catch (err) {
+        console.log('Client direct FX market feed fetch error:', err);
+      }
+    };
+    fetchDirectLiveFx();
+  }, []);
 
   // Market Cycle Audit & Devaluation States (Synced to Firestore per user)
   const [cycleItems, setCycleItems] = useState<CycleItem[]>([]);
@@ -669,7 +688,7 @@ export default function App() {
     const runClientSideTick = () => {
       // Fluctuate USD exchange rate slightly
       setExchangeRates((prev) => {
-        const currentUSD = prev.USD || 58.2;
+        const currentUSD = prev.USD || 61.24;
         const deltaFactor = 1 + (Math.random() * 2 - 1) * 0.0003;
         return {
           ...prev,
@@ -1399,8 +1418,16 @@ export default function App() {
         triggerToast('Bypassed Search Grounding', 'Using cached active prices. Configure a valid key in tab settings.', 'warning');
       }
     } catch (err) {
-      // Static host fallback - trigger instant fresh market micro-ticks
-      setExchangeRates((prev) => ({ ...prev, USD: 58.25 }));
+      // Static host fallback - try client-side fetch from open.er-api then trigger instant fresh market micro-ticks
+      try {
+        const fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
+        const fxData = await fxRes.json();
+        if (fxData && fxData.rates && fxData.rates.PHP) {
+          const livePhp = Number(fxData.rates.PHP.toFixed(4));
+          setExchangeRates((prev) => ({ ...prev, USD: livePhp }));
+        }
+      } catch (e) {}
+
       setAssets((prevAssets) =>
         prevAssets.map((asset) => {
           let volatility = 0.001;

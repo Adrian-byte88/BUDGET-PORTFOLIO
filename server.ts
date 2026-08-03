@@ -38,7 +38,7 @@ const CLOUD_BACKUPS: Record<string, BackupPayload> = {};
 
 // Active market rates store that fluctuates dynamically over time
 const MARKET_PRICES = {
-  USD_PHP: 58.25,
+  USD_PHP: 61.24,
   BTC_USD: 65420.00,
   GOLD_USD: 4075.30,
   PAXG_USD: 4075.30,
@@ -51,10 +51,28 @@ const MARKET_PRICES = {
 // Helper to fetch live spot market prices directly from internet public endpoints (Binance & Open Exchange Rates)
 async function fetchRealtimeInternetPrices() {
   try {
-    const [paxgRes, btcRes, fxRes] = await Promise.all([
+    const fetchFx = async () => {
+      try {
+        const r = await fetch('https://open.er-api.com/v6/latest/USD');
+        if (r.ok) {
+          const d = await r.json();
+          if (d?.rates?.PHP) return Number(d.rates.PHP);
+        }
+      } catch (e) {}
+      try {
+        const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        if (r.ok) {
+          const d = await r.json();
+          if (d?.rates?.PHP) return Number(d.rates.PHP);
+        }
+      } catch (e) {}
+      return null;
+    };
+
+    const [paxgRes, btcRes, liveFxRate] = await Promise.all([
       fetch('https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-      fetch('https://open.er-api.com/v6/latest/USD').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetchFx(),
     ]);
 
     if (paxgRes && paxgRes.price) {
@@ -72,11 +90,8 @@ async function fetchRealtimeInternetPrices() {
       }
     }
 
-    if (fxRes && fxRes.rates && fxRes.rates.PHP) {
-      const livePhp = Number(fxRes.rates.PHP);
-      if (!isNaN(livePhp) && livePhp > 0) {
-        MARKET_PRICES.USD_PHP = livePhp;
-      }
+    if (liveFxRate && !isNaN(liveFxRate) && liveFxRate > 0) {
+      MARKET_PRICES.USD_PHP = Number(liveFxRate.toFixed(4));
     }
   } catch (err) {
     console.error('Realtime internet market price fetch error:', err);
@@ -102,8 +117,11 @@ function fluctuatePrices() {
 // Start price fluctuation interval (runs every 3.5 seconds)
 setInterval(fluctuatePrices, 3500);
 
-// Initialize real-time internet prices on server startup
+// Initialize real-time internet prices on server startup and poll every 30 seconds
 fetchRealtimeInternetPrices().catch((err) => console.error('Initial internet price fetch error:', err));
+setInterval(() => {
+  fetchRealtimeInternetPrices().catch((err) => console.error('Periodic internet price fetch error:', err));
+}, 30000);
 
 async function startServer() {
   const app = express();
@@ -286,7 +304,7 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
         { id: 'cy-4', asset: 'PSE Equities (SCC / SPC)', phase: 'Value Consolidation', sentiment: 'Bearish', logic: 'SCC Energy faces mild price correction on softer thermal coal indices; SPC is solid yield play.' },
       ],
       devaluationItems: [
-        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: '₱58.25 per USD', portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Protected via USD proxy assets', statusType: 'aligned' },
+        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: `₱${MARKET_PRICES.USD_PHP.toFixed(2)} per USD`, portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Protected via USD proxy assets', statusType: 'aligned' },
         { id: 'de-2', indicator: 'PH Inflation Rate', marketRef: '3.4% Headline', portfolioExposure: 'Time Deposits / Maya HYS', hedgeStatus: 'Yield outpacing inflation rate', statusType: 'aligned' },
         { id: 'de-3', indicator: 'BSP Interest Policy', marketRef: '6.50% Target Policy Rate', portfolioExposure: 'Liquid cash positions', hedgeStatus: 'Optimized high-yield savings (5%-6% p.a.)', statusType: 'aligned' },
       ],
@@ -384,7 +402,7 @@ async function getPortfolioUpdateData(apiKey: string | undefined): Promise<any> 
         { id: 'cy-4', asset: 'PSE Equities (SCC / SPC)', phase: 'Value Consolidation', sentiment: 'Bearish', logic: 'SCC Energy faces mild price correction on softer thermal coal indices; SPC is solid yield play.' },
       ],
       devaluationItems: [
-        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: '₱58.25 per USD', portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Protected via USD proxy assets', statusType: 'aligned' },
+        { id: 'de-1', indicator: 'PHP/USD Spot Rate', marketRef: `₱${MARKET_PRICES.USD_PHP.toFixed(2)} per USD`, portfolioExposure: '16.9% Risk sleeve hedging', hedgeStatus: 'Protected via USD proxy assets', statusType: 'aligned' },
         { id: 'de-2', indicator: 'PH Inflation Rate', marketRef: '3.4% Headline', portfolioExposure: 'Time Deposits / Maya HYS', hedgeStatus: 'Yield outpacing inflation rate', statusType: 'aligned' },
         { id: 'de-3', indicator: 'BSP Interest Policy', marketRef: '6.50% Target Policy Rate', portfolioExposure: 'Liquid cash positions', hedgeStatus: 'Optimized high-yield savings (5%-6% p.a.)', statusType: 'aligned' },
       ],

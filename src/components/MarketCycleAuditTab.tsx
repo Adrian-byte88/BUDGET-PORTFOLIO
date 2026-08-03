@@ -120,14 +120,14 @@ export function buildCycleItemsFromAssets(assetsList: AssetPosition[], totalVal:
 }
 
 export const INITIAL_DEVALUATION_ITEMS: DevaluationItem[] = [
-  { id: 'dv-1', indicator: 'USD/PHP FX Benchmark', marketRef: '₱58.25 (BSP Market Ref)', portfolioExposure: '15.00% (Risk Sleeve)', hedgeStatus: 'SECURE (USD assets act as natural hedge against PHP weakness)', statusType: 'SECURE' },
+  { id: 'dv-1', indicator: 'USD/PHP FX Benchmark', marketRef: '₱61.24 (BSP Market Ref)', portfolioExposure: '15.00% (Risk Sleeve)', hedgeStatus: 'SECURE (USD assets act as natural hedge against PHP weakness)', statusType: 'SECURE' },
   { id: 'dv-2', indicator: 'PH Inflation (PSA CPI)', marketRef: '3.4% Baseline', portfolioExposure: '85.00% (Safe Shield)', hedgeStatus: 'SECURE (High-Yield Maya Bank interest outpacing 3.4% inflation)', statusType: 'SECURE' },
   { id: 'dv-3', indicator: 'High-Yield Reserve Defense (Maya Bank HYS / TD)', marketRef: '6.50% Policy Rate | 6.0% - 10.0% HYS Base', portfolioExposure: '₱85,000.00', hedgeStatus: 'SECURE (Maya Bank high-yield savings interest shields capital from local currency degradation)', statusType: 'SECURE' },
   { id: 'dv-4', indicator: 'USD & Commodity Proxy Hedge Ratio', marketRef: '₱15,000.00 (BTC, Gold & Foreign Assets)', portfolioExposure: '15.00% (Total Net Worth)', hedgeStatus: 'SECURE (Sufficient USD/Gold proxy hedge against PHP devaluation)', statusType: 'SECURE' }
 ];
 
 export const INITIAL_AUDIT_CHANGES: AuditChangeItem[] = [
-  { id: 'ac-1', title: 'BTC & PAXG Volatility', description: 'Both positions held steady in peso terms as spot USD/PHP rate stabilized around ₱58.25.' },
+  { id: 'ac-1', title: 'BTC & PAXG Volatility', description: 'Both positions held steady in peso terms as spot USD/PHP rate stabilized around ₱61.24.' },
   { id: 'ac-2', title: 'Equities Trend Divergence', description: 'SCC Energy continued its steady downtrend (now down roughly 15.21% below registered cost bases), while SPC Power (+4.76%) and RCR REIT (+5.45%) extended positive momentum.' },
   { id: 'ac-3', title: 'Inflation Moderation', description: 'Headline Philippine Inflation eased slightly to 6.4% in June 2026, narrowing the real under-yielding yield gap versus safe cash reserves, though structural under-yielding persists.' },
   { id: 'ac-4', title: 'Loan Collection Receipt', description: 'The short-term personal receivable of ₱10,000 extended to your friend matured on Jul 11—carried over in cash balances as fully collected at ₱10,500 (+₱500 accrued premium).' },
@@ -494,7 +494,7 @@ export default function MarketCycleAuditTab({
       setIsUpdatingAI(false);
     }
 
-    const usdRate = usdPhpRate || 58.5;
+    const usdRate = usdPhpRate || 61.24;
     const safeAssetsList = assets.filter((a) => a.class === 'safe' || a.class === 'hys' || a.assetType === 'hys' || a.assetType === 'deposit' || a.assetType === 'cash');
     const totalSafeVal = safeAssetsList.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
     const riskAssetsList = assets.filter((a) => a.class === 'risk' || a.assetType === 'crypto' || a.assetType === 'equity' || a.assetType === 'commodity');
