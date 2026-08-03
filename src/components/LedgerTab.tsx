@@ -190,7 +190,7 @@ export default function LedgerTab({
 
           {/* Ledger Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[600px]">
               <thead>
                 <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-white/10">
                   <th className="py-4 pl-4">Effective Date</th>

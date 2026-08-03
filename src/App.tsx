@@ -1537,11 +1537,11 @@ export default function App() {
       />
 
       {/* Tab Navigations */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         
         {/* Core Sub navigation rails */}
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2 mb-8 overflow-x-auto gap-4 hide-scrollbar">
-          <nav className="flex space-x-2" aria-label="Tabs">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2 mb-4 sm:mb-8 overflow-x-auto gap-2 sm:gap-4 hide-scrollbar">
+          <nav className="flex space-x-1.5 sm:space-x-2 shrink-0" aria-label="Tabs">
             {accessibleTabs.map((tab) => {
               const isActive = activeTab === tab;
               const isLocked = !isAdmin && subscriptionTier === 'free' && !FREE_ALLOWED_TABS.includes(tab as any);
@@ -1560,7 +1560,7 @@ export default function App() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold tracking-tight transition-all whitespace-nowrap border flex items-center space-x-1.5 ${
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[11px] sm:text-xs font-semibold tracking-tight transition-all whitespace-nowrap border flex items-center space-x-1.5 ${
                     isActive
                       ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                       : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
@@ -1578,7 +1578,7 @@ export default function App() {
             })}
           </nav>
           
-          <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/5 shrink-0 shadow-xs">
+          <div className="hidden sm:flex items-center space-x-3 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/5 shrink-0 shadow-xs">
             <div className="px-3 py-1 bg-slate-50 dark:bg-slate-800/80 rounded-lg flex items-center space-x-1.5">
               <span className="text-[9px] text-slate-500 font-bold uppercase">USD/PHP Exchange</span>
               <span className="text-xs text-slate-900 dark:text-slate-200 font-bold">₱{exchangeRates.USD.toFixed(2)}</span>

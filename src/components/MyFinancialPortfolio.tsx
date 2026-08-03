@@ -1088,7 +1088,7 @@ export default function MyFinancialPortfolio({
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[620px]">
               <thead>
                 <tr className="bg-slate-100/50 dark:bg-slate-950/40 text-slate-500 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-white/10">
                   <th className="py-4 pl-5">Tier</th>
@@ -1253,7 +1253,7 @@ export default function MyFinancialPortfolio({
           </div>
           
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse min-w-[580px]">
               <thead>
                 <tr className="bg-slate-50/50 dark:bg-slate-950/20 text-slate-400 text-[9px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-white/10">
                   <th className="py-3 pl-5">Priority Pillar</th>

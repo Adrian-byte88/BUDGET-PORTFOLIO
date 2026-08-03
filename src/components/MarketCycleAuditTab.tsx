@@ -790,7 +790,7 @@ export default function MarketCycleAuditTab({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs min-w-[620px]">
             <thead>
               <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100 dark:border-white/5">
                 <th className="pb-3 pl-2 w-36">Asset Class</th>
@@ -962,7 +962,7 @@ export default function MarketCycleAuditTab({
         </div>
 
         <div className="overflow-x-auto mb-6">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs min-w-[620px]">
             <thead>
               <tr className="text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100 dark:border-white/5">
                 <th className="pb-3 pl-2">Macro Indicator</th>

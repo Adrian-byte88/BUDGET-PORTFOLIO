@@ -78,19 +78,19 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
-        <div className="flex items-center space-x-3.5">
-          <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg shadow-md" />
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-18 flex items-center justify-between">
+        <div className="flex items-center space-x-2.5 sm:space-x-3.5">
+          <img src={logoImg} alt="Logo" className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg shadow-md" />
           <div>
-            <h1 className="font-bold text-lg text-slate-900 dark:text-white tracking-tight uppercase">
+            <h1 className="font-bold text-sm sm:text-lg text-slate-900 dark:text-white tracking-tight uppercase">
               BUDGET PORTFOLIO
             </h1>
-            <div className="flex items-center space-x-1.5 mt-0.5">
+            <div className="flex items-center space-x-1.5 mt-0.2 sm:mt-0.5">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
               </span>
-              <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Enterprise Core v96.2</p>
+              <p className="text-[8px] sm:text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Enterprise Core v96.2</p>
             </div>
           </div>
         </div>
@@ -248,31 +248,44 @@ export default function Navbar({
         </div>
 
         {/* Mobile Toggle */}
-        <div className="md:hidden flex items-center space-x-2">
+        <div className="md:hidden flex items-center space-x-1.5">
+          <button
+            onClick={onToggleDarkMode}
+            className="p-1.5 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-white/5"
+            title="Toggle Accessibility Color Theme"
+          >
+            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
           >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-white/5 p-4 space-y-4 animate-slide-down">
+        <div className="md:hidden bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-white/5 p-4 space-y-3 animate-slide-down">
+          <div className="mb-2">
+            <SearchEngine assets={assets} expenses={expenses} goals={goals} budgets={budgets} onSelect={(type, id, tab) => { onSelect(type, id, tab); setMobileMenuOpen(false); }} />
+          </div>
+
           <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-200 dark:border-white/5 pb-2">
             <button
               onClick={() => {
                 onOpenSettings('profile');
                 setMobileMenuOpen(false);
               }}
-              className="text-left"
+              className="text-left font-medium truncate max-w-[200px]"
             >
               Logged in: <b className="text-slate-900 dark:text-white hover:underline">{email}</b>
             </button>
-            <button onClick={onToggleDarkMode} className="text-blue-600 dark:text-blue-400 font-bold underline">
-              {darkMode ? 'Light Mode' : 'Dark Mode'}
+            <button onClick={onOpenPricing} className="text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 text-[11px]">
+              <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
+              <span>Pricing</span>
             </button>
           </div>
 
