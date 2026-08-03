@@ -168,6 +168,7 @@ export interface MarketCycleAuditTabProps {
     deploymentItems?: DeploymentPlanItem[],
     budgetCap?: string
   ) => void;
+  onFetchLiveMarketPrices?: () => Promise<void>;
 }
 
 export default function MarketCycleAuditTab({
@@ -191,6 +192,7 @@ export default function MarketCycleAuditTab({
   onUpdateBudgetCap,
   onTriggerPopupModal,
   onSyncCycleAuditToCloud,
+  onFetchLiveMarketPrices,
 }: MarketCycleAuditTabProps) {
   const [isUpdatingAI, setIsUpdatingAI] = useState(false);
   const [localToast, setLocalToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -480,7 +482,18 @@ export default function MarketCycleAuditTab({
   }, [assets]);
 
   // Zero-AI Algorithmic Rule Engine (100% Deterministic Mathematical Formulas across ALL 4 Sections)
-  const handleAlgorithmicDataRefreshAndSync = () => {
+  const handleAlgorithmicDataRefreshAndSync = async () => {
+    setIsUpdatingAI(true);
+    try {
+      if (onFetchLiveMarketPrices) {
+        await onFetchLiveMarketPrices();
+      }
+    } catch (err) {
+      console.error('Failed to fetch live prices during Zero-AI sync:', err);
+    } finally {
+      setIsUpdatingAI(false);
+    }
+
     const usdRate = usdPhpRate || 58.5;
     const safeAssetsList = assets.filter((a) => a.class === 'safe' || a.class === 'hys' || a.assetType === 'hys' || a.assetType === 'deposit' || a.assetType === 'cash');
     const totalSafeVal = safeAssetsList.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
@@ -696,12 +709,17 @@ export default function MarketCycleAuditTab({
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleAlgorithmicDataRefreshAndSync}
-            className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all cursor-pointer active:scale-95"
+            disabled={isUpdatingAI}
+            className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all cursor-pointer active:scale-95 disabled:opacity-60"
             title="Recalculate all 4 Cycle Audit sections using live deterministic math formulas and sync directly to cloud database"
           >
-            <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+            {isUpdatingAI ? (
+              <RefreshCw className="w-4 h-4 text-amber-300 animate-spin" />
+            ) : (
+              <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+            )}
             <CloudUpload className="w-4 h-4" />
-            <span>⚡ Run Zero-AI Engine & Sync to Database</span>
+            <span>{isUpdatingAI ? 'Fetching Internet Prices...' : '⚡ Run Zero-AI Engine & Sync to Database'}</span>
           </button>
         </div>
       </div>

@@ -40,13 +40,48 @@ const CLOUD_BACKUPS: Record<string, BackupPayload> = {};
 const MARKET_PRICES = {
   USD_PHP: 58.25,
   BTC_USD: 65420.00,
-  GOLD_USD: 2480.00,
-  PAXG_USD: 2480.00,
+  GOLD_USD: 4075.30,
+  PAXG_USD: 4075.30,
   SCC_PHP: 32.50,
   SPC_PHP: 10.70,
   RCR_PHP: 5.40,
   MANULIFE_PHP: 51.12,
 };
+
+// Helper to fetch live spot market prices directly from internet public endpoints (Binance & Open Exchange Rates)
+async function fetchRealtimeInternetPrices() {
+  try {
+    const [paxgRes, btcRes, fxRes] = await Promise.all([
+      fetch('https://api.binance.com/api/v3/ticker/price?symbol=PAXGUSDT').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('https://open.er-api.com/v6/latest/USD').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
+
+    if (paxgRes && paxgRes.price) {
+      const livePaxg = Number(paxgRes.price);
+      if (!isNaN(livePaxg) && livePaxg > 0) {
+        MARKET_PRICES.PAXG_USD = livePaxg;
+        MARKET_PRICES.GOLD_USD = livePaxg;
+      }
+    }
+
+    if (btcRes && btcRes.price) {
+      const liveBtc = Number(btcRes.price);
+      if (!isNaN(liveBtc) && liveBtc > 0) {
+        MARKET_PRICES.BTC_USD = liveBtc;
+      }
+    }
+
+    if (fxRes && fxRes.rates && fxRes.rates.PHP) {
+      const livePhp = Number(fxRes.rates.PHP);
+      if (!isNaN(livePhp) && livePhp > 0) {
+        MARKET_PRICES.USD_PHP = livePhp;
+      }
+    }
+  } catch (err) {
+    console.error('Realtime internet market price fetch error:', err);
+  }
+}
 
 // Simple helper to introduce random-walk price fluctuations for live real-time simulation
 function fluctuatePrices() {
@@ -66,6 +101,9 @@ function fluctuatePrices() {
 
 // Start price fluctuation interval (runs every 3.5 seconds)
 setInterval(fluctuatePrices, 3500);
+
+// Initialize real-time internet prices on server startup
+fetchRealtimeInternetPrices().catch((err) => console.error('Initial internet price fetch error:', err));
 
 async function startServer() {
   const app = express();
@@ -107,16 +145,19 @@ function checkIsQuotaError(error: any): boolean {
 
   // API 3: Grounded Gemini Sync using Google Search (Server-side API keys strictly preserved)
   app.post('/api/market/sync-ai', async (req: Request, res: Response) => {
+    // 1. First fetch latest real-time internet spot prices (Binance & Open Exchange Rates)
+    await fetchRealtimeInternetPrices();
+
     const customApiKey = req.body.apiKey;
     const apiKey = customApiKey || process.env.GEMINI_API_KEY;
 
     if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-      // Graceful fallback to cached fluctuated values if key is missing or is placeholder
+      // Return real-time spot prices directly from live market endpoints
       return res.json({
         success: true,
-        source: 'cached_live',
+        source: 'realtime_internet_sync',
         quotaExceeded: false,
-        message: 'No active Google Gemini key found. Displaying current real-time market caches.',
+        message: 'Synced real-time live spot prices for PAXG, BTC, and USD/PHP from internet markets.',
         prices: {
           usd_php: MARKET_PRICES.USD_PHP,
           btc_usd: MARKET_PRICES.BTC_USD,

@@ -81,10 +81,10 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
     key: 'paxg',
     name: 'Pax Gold (PAXG) - Physical Bullion',
-    class: 'safe',
+    class: 'risk',
     platform: 'Binance / Secure Vault',
     units: 1.5,
-    currentPricePHP: 145000,
+    currentPricePHP: 237386.23,
     costBasisPHP: 135000,
     assetType: 'commodity',
     change24h: 0.85
@@ -374,7 +374,8 @@ export default function App() {
         const data = docSnap.data();
         isRemoteUpdate.current = true;
 
-        const userAssets = Array.isArray(data.assets) ? data.assets : (isAdmin ? DEFAULT_INITIAL_ASSETS : []);
+        const rawAssets: AssetPosition[] = Array.isArray(data.assets) ? data.assets : (isAdmin ? DEFAULT_INITIAL_ASSETS : []);
+        const userAssets = rawAssets.map(a => a.key === 'paxg' && a.class === 'safe' ? { ...a, class: 'risk' as const } : a);
         const userExpenses = Array.isArray(data.expenses) ? data.expenses : [];
         const userTransactions = Array.isArray(data.transactions) ? data.transactions : (isAdmin ? INITIAL_HISTORICAL_TXS : []);
         const userGoals = Array.isArray(data.goals) ? data.goals : [];
@@ -432,7 +433,7 @@ export default function App() {
         if (localAssets) {
           try {
             const parsed = JSON.parse(localAssets);
-            if (Array.isArray(parsed)) initAssets = parsed;
+            if (Array.isArray(parsed)) initAssets = parsed.map(a => a.key === 'paxg' && a.class === 'safe' ? { ...a, class: 'risk' as const } : a);
           } catch {}
         }
 
@@ -1336,30 +1337,42 @@ export default function App() {
 
       if (data.success && data.prices) {
         const prices = data.prices;
+        const currentUsdRate = Number(prices.usd_php || exchangeRates.USD || 61.24);
         setExchangeRates((prev) => ({
           ...prev,
-          USD: Number(prices.usd_php || prev.USD),
+          USD: currentUsdRate,
         }));
 
-        setAssets((prevAssets) =>
-          prevAssets.map((asset) => {
-            let updatedPrice = asset.currentPricePHP;
+        let newPaxgPricePHP = 0;
 
-            if (asset.key === 'btc' && prices.btc_usd) updatedPrice = prices.btc_usd * (prices.usd_php || exchangeRates.USD);
-            else if (asset.key === 'paxg' && prices.paxg_usd) updatedPrice = prices.paxg_usd * (prices.usd_php || exchangeRates.USD);
-            else if (asset.key === 'scc' && prices.scc_php) updatedPrice = prices.scc_php;
-            else if (asset.key === 'spc' && prices.spc_php) updatedPrice = prices.spc_php;
-            else if (asset.key === 'rcr' && prices.rcr_php) updatedPrice = prices.rcr_php;
-            else if (asset.key === 'manulife' && prices.manulife_php) updatedPrice = prices.manulife_php;
+        const updatedAssets = assets.map((asset) => {
+          let updatedPrice = asset.currentPricePHP;
 
-            return {
-              ...asset,
-              currentPricePHP: updatedPrice,
-            };
-          })
-        );
+          if (asset.key === 'btc' && prices.btc_usd) updatedPrice = prices.btc_usd * currentUsdRate;
+          else if (asset.key === 'paxg' && prices.paxg_usd) {
+            updatedPrice = prices.paxg_usd * currentUsdRate;
+            newPaxgPricePHP = updatedPrice;
+          }
+          else if (asset.key === 'scc' && prices.scc_php) updatedPrice = prices.scc_php;
+          else if (asset.key === 'spc' && prices.spc_php) updatedPrice = prices.spc_php;
+          else if (asset.key === 'rcr' && prices.rcr_php) updatedPrice = prices.rcr_php;
+          else if (asset.key === 'manulife' && prices.manulife_php) updatedPrice = prices.manulife_php;
 
-        triggerToast('Grounded Search complete', 'Latest PSE shares and commodity pricing verified via Gemini API', 'success');
+          return {
+            ...asset,
+            currentPricePHP: Number(updatedPrice.toFixed(2)),
+          };
+        });
+
+        setAssets(updatedAssets);
+        localStorage.setItem('portfolio_assets', JSON.stringify(updatedAssets));
+
+        if (email) {
+          setDoc(doc(db, 'users', email, 'financialData', 'data'), { assets: updatedAssets }, { merge: true }).catch(console.error);
+        }
+
+        const paxgInfo = newPaxgPricePHP > 0 ? ` PAXG: $${prices.paxg_usd?.toLocaleString()} (₱${newPaxgPricePHP.toLocaleString(undefined, { maximumFractionDigits: 0 })}).` : '';
+        triggerToast('Real-time Market Sync Complete', `Synced live spot prices from internet.${paxgInfo}`, 'success');
       } else {
         triggerToast('Bypassed Search Grounding', 'Using cached active prices. Configure a valid key in tab settings.', 'warning');
       }
@@ -1666,6 +1679,7 @@ export default function App() {
               onUpdateBudgetCap={setBudgetCap}
               onTriggerPopupModal={triggerPopupModal}
               onSyncCycleAuditToCloud={handleSyncCycleAuditToCloud}
+              onFetchLiveMarketPrices={() => handleExecuteSyncAI('')}
             />
           )
         )}

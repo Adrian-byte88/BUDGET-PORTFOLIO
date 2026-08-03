@@ -1287,7 +1287,7 @@ export default function MyFinancialPortfolio({
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5">
                   <Activity className="w-4 h-4" />
-                  <span>Portfolio Asset Allocation Audit ({targetSafe}/{100 - targetSafe} Target)</span>
+                  <span>Salary Dilution Math Audit ({targetSafe}/{100 - targetSafe} Target)</span>
                 </span>
                 <span className="px-2 py-0.5 text-[9px] font-extrabold rounded-md bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-300">
                   REBALANCING MODEL
@@ -1301,28 +1301,44 @@ export default function MyFinancialPortfolio({
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rebalancing Allocation Gap</span>
               </div>
 
-              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-300 mt-4 border-t border-slate-200/60 dark:border-white/5 pt-3">
-                <li className="flex justify-between items-center">
-                  <span>Live Risk Sleeve Value</span>
+              <div className="mt-4 border-t border-slate-200/60 dark:border-white/5 pt-3 space-y-3 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex justify-between items-center font-medium">
+                  <span>1. Current Risk Sleeve Value:</span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">₱{totalRiskSleeve.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </li>
-                <li className="flex justify-between items-center">
-                  <span>Implied Total Portfolio Target (Risk ÷ {((100 - targetSafe) / 100).toFixed(2)})</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{targetPortfolioSize.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </li>
-                <li className="flex justify-between items-center">
-                  <span>Target Safe Shield ({targetSafe}% of Target Total)</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">₱{targetSafeShieldValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </li>
-                <li className="flex justify-between items-center">
-                  <span>Current Live Safe Shield Capital</span>
+                </div>
+
+                <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-slate-200/50 dark:border-white/5 space-y-1">
+                  <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    2. Target Portfolio Size <span className="font-normal text-slate-500">(scaled for {100 - targetSafe}% risk allocation)</span>:
+                  </div>
+                  <div className="font-mono text-center text-[11px] py-1 text-blue-600 dark:text-blue-400 font-bold bg-blue-50/50 dark:bg-blue-950/30 rounded border border-blue-100 dark:border-blue-900/30">
+                    Target Portfolio Size = ₱{totalRiskSleeve.toLocaleString('en-US', { minimumFractionDigits: 2 })} ÷ {((100 - targetSafe) / 100).toFixed(2)} = ₱{targetPortfolioSize.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+
+                <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-slate-200/50 dark:border-white/5 space-y-1">
+                  <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    3. Target Safe Shield <span className="font-normal text-slate-500">(scaled for {targetSafe}% safety standard)</span>:
+                  </div>
+                  <div className="font-mono text-center text-[11px] py-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50/50 dark:bg-emerald-950/30 rounded border border-emerald-100 dark:border-emerald-900/30">
+                    Target Safe Shield = ₱{targetPortfolioSize.toLocaleString('en-US', { minimumFractionDigits: 2 })} × {(targetSafe / 100).toFixed(2)} = ₱{targetSafeShieldValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center font-medium">
+                  <span>4. Current Safe Shield Value:</span>
                   <span className="font-mono font-bold text-slate-900 dark:text-white">₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </li>
-                <li className="flex justify-between items-center border-t border-slate-200/60 dark:border-white/5 pt-2 font-bold text-rose-600 dark:text-rose-400">
-                  <span>Rebalancing Allocation Gap</span>
-                  <span className="font-mono underline underline-offset-4">₱{institutionalFundingGap.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
-                </li>
-              </ul>
+                </div>
+
+                <div className="bg-rose-50/70 dark:bg-rose-950/30 p-2.5 rounded-lg border border-rose-200/60 dark:border-rose-900/40 space-y-1">
+                  <div className="text-[11px] font-extrabold text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+                    5. INSTITUTIONAL FUNDING GAP (Rebalancing Gap):
+                  </div>
+                  <div className="font-mono text-center text-[11px] py-1 text-rose-600 dark:text-rose-300 font-extrabold bg-white/80 dark:bg-slate-900/80 rounded border border-rose-200/50 dark:border-rose-900/30">
+                    Funding Gap = ₱{targetSafeShieldValue.toLocaleString('en-US', { minimumFractionDigits: 2 })} − ₱{totalSafeShield.toLocaleString('en-US', { minimumFractionDigits: 2 })} = ₱{institutionalFundingGap.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200/60 dark:border-white/5">
