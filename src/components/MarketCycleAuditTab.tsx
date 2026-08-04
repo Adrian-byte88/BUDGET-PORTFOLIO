@@ -403,22 +403,22 @@ export default function MarketCycleAuditTab({
           });
         }
         triggerLocalToast('⚠️ Quota limit reached: Loaded offline sentiment models.', 'error');
-      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding') {
+      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding' || data.source === 'realtime_internet_sync') {
         if (onTriggerPopupModal) {
           onTriggerPopupModal(
             'search_grounding',
-            'Search Grounding Successful',
-            'Google Search Grounding successfully verified live 2026 market cycles, Philippine inflation metrics, and portfolio alert trigger rules!'
+            'Live Market Sync Successful',
+            'Successfully verified live 2026 market cycles, Philippine inflation metrics, and portfolio alert trigger rules!'
           );
         } else {
           setPopupState({
             isOpen: true,
             type: 'search_grounding',
-            title: 'Search Grounding Successful',
-            message: 'Google Search Grounding successfully verified live 2026 market cycles, Philippine inflation metrics, and portfolio alert trigger rules!'
+            title: 'Live Market Sync Successful',
+            message: 'Successfully verified live 2026 market cycles, Philippine inflation metrics, and portfolio alert trigger rules!'
           });
         }
-        triggerLocalToast('✨ Market cycles & alert triggers auto-updated via Search Grounding!', 'success');
+        triggerLocalToast('✨ Market cycles & alert triggers updated!', 'success');
       }
 
       if (data.success) {

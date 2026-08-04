@@ -234,22 +234,22 @@ export default function MyFinancialPortfolio({
           });
         }
         triggerLocalToast('⚠️ Quota Limit Reached: Loaded offline sentiment models.', 'error');
-      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding') {
+      } else if (data.searchGroundingSuccess || data.source === 'gemini_search_grounding' || data.source === 'realtime_internet_sync') {
         if (onTriggerPopupModal) {
           onTriggerPopupModal(
             'search_grounding',
-            'Search Grounding Successful',
-            'Google Search Grounding successfully verified live asset sentiments and Philippine macro market indicators!'
+            'Live Market Sync Successful',
+            'Successfully synchronized live asset prices and Philippine financial indicators!'
           );
         } else {
           setPopupState({
             isOpen: true,
             type: 'search_grounding',
-            title: 'Search Grounding Successful',
-            message: 'Google Search Grounding successfully verified live asset sentiments and Philippine macro market indicators!'
+            title: 'Live Market Sync Successful',
+            message: 'Successfully synchronized live asset prices and Philippine financial indicators!'
           });
         }
-        triggerLocalToast('✨ Portfolio sentiments auto-updated via Search Grounding!', 'success');
+        triggerLocalToast('✨ Portfolio market metrics updated!', 'success');
       }
 
       if (data.success) {
