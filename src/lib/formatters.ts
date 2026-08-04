@@ -149,9 +149,7 @@ export function getAssetValuation(asset: AssetPosition): AssetValuationResult {
   }
 
   // Standard market-price or unit-price valuation
-  const effectiveCostBasis = (asset.costBasisPHP > 0 && asset.costBasisPHP < asset.currentPricePHP * 2 && asset.units > 1)
-    ? asset.costBasisPHP * asset.units
-    : asset.costBasisPHP;
+  const effectiveCostBasis = asset.costBasisPHP > 0 ? asset.costBasisPHP : baseMarketVal;
   const totalValue = baseMarketVal > 0 ? baseMarketVal : effectiveCostBasis;
   const profitLoss = totalValue - effectiveCostBasis;
 

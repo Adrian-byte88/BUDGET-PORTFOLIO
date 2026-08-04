@@ -106,10 +106,10 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     class: 'risk',
     platform: 'COL Financial',
     units: 5000,
-    currentPricePHP: 32.5,
+    currentPricePHP: 20.80,
     costBasisPHP: 150000,
     assetType: 'equity',
-    change24h: -0.45
+    change24h: -1.19
   },
   {
     key: 'spc',
@@ -117,10 +117,10 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     class: 'risk',
     platform: 'DragonFi / COL Financial',
     units: 10000,
-    currentPricePHP: 10.70,
+    currentPricePHP: 10.28,
     costBasisPHP: 98500,
     assetType: 'equity',
-    change24h: 0.47
+    change24h: 0.00
   },
   {
     key: 'rcr',
@@ -128,10 +128,10 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     class: 'risk',
     platform: 'First Metro Sec',
     units: 20000,
-    currentPricePHP: 5.40,
+    currentPricePHP: 7.16,
     costBasisPHP: 102000,
     assetType: 'equity',
-    change24h: 0.18
+    change24h: -0.28
   },
   {
     key: 'manulife',
@@ -142,7 +142,7 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     currentPricePHP: 51.12,
     costBasisPHP: 100000,
     assetType: 'equity',
-    change24h: 0.25
+    change24h: 0.00
   },
   {
     key: 'realestate',
@@ -680,59 +680,20 @@ export default function App() {
     );
   }, [expenses]);
 
-  // 1. Live Market Fluctuations Polling Ticker (Supports both Backend Server & Static Deployment like GitHub Pages)
+  // 1. Live Market Fluctuations Polling Ticker (Supports both Backend Server & Static Deployment)
   useEffect(() => {
     if (!email) return;
-
-    // Helper function for client-side live market simulation on static hosting (e.g., GitHub Pages)
-    const runClientSideTick = () => {
-      // Fluctuate USD exchange rate slightly
-      setExchangeRates((prev) => {
-        const currentUSD = prev.USD || 61.24;
-        const deltaFactor = 1 + (Math.random() * 2 - 1) * 0.0003;
-        return {
-          ...prev,
-          USD: Number((currentUSD * deltaFactor).toFixed(4)),
-        };
-      });
-
-      // Fluctuate asset prices and recalculate 24h performance
-      isTickerUpdateRef.current = true;
-      setAssets((prevAssets) => {
-        if (!prevAssets || prevAssets.length === 0) return prevAssets;
-
-        return prevAssets.map((asset) => {
-          let volatility = 0.0005; // default 0.05%
-          if (asset.key === 'btc' || asset.assetType === 'crypto') volatility = 0.0012; // 0.12%
-          else if (asset.key === 'paxg' || asset.assetType === 'commodity') volatility = 0.0004; // 0.04%
-          else if (asset.key === 'scc' || asset.key === 'spc' || asset.assetType === 'stock') volatility = 0.0008; // 0.08%
-
-          const factor = 1 + (Math.random() * 2 - 1) * volatility;
-          const oldPrice = asset.currentPricePHP || 1;
-          const updatedPrice = Number((oldPrice * factor).toFixed(4));
-          const diffPct = oldPrice > 0 ? ((updatedPrice - oldPrice) / oldPrice) * 100 : 0;
-
-          return {
-            ...asset,
-            currentPricePHP: updatedPrice,
-            change24h: Number(((asset.change24h || 0) + diffPct).toFixed(2)),
-          };
-        });
-      });
-    };
 
     const fetchTicks = async () => {
       try {
         const res = await fetch('/api/market/ticks');
-        if (!res.ok) {
-          runClientSideTick();
-          return;
-        }
+        if (!res.ok) return;
 
         const data = await res.json();
 
         if (data.success && data.prices) {
           const prices = data.prices;
+          const changes = data.changes24h || {};
           
           setExchangeRates((prev) => ({
             ...prev,
@@ -744,39 +705,43 @@ export default function App() {
             if (!prevAssets || prevAssets.length === 0) return prevAssets;
             return prevAssets.map((asset) => {
               let updatedPrice = asset.currentPricePHP;
-              let change24h = asset.change24h || 0;
+              let updatedTrend = asset.change24h;
 
-              if (asset.key === 'btc' && prices.btc_php) updatedPrice = prices.btc_php;
-              else if (asset.key === 'paxg' && prices.paxg_php) updatedPrice = prices.paxg_php;
-              else if (asset.key === 'scc' && prices.scc_php) updatedPrice = prices.scc_php;
-              else if (asset.key === 'spc' && prices.spc_php) updatedPrice = prices.spc_php;
-              else if (asset.key === 'rcr' && prices.rcr_php) updatedPrice = prices.rcr_php;
-              else if (asset.key === 'manulife' && prices.manulife_php) updatedPrice = prices.manulife_php;
-              else {
-                const factor = 1 + (Math.random() * 2 - 1) * 0.0005;
-                updatedPrice = Number((asset.currentPricePHP * factor).toFixed(4));
+              if (asset.key === 'btc') {
+                if (prices.btc_php) updatedPrice = prices.btc_php;
+                if (changes.btc !== undefined) updatedTrend = changes.btc;
+              } else if (asset.key === 'paxg') {
+                if (prices.paxg_php) updatedPrice = prices.paxg_php;
+                if (changes.paxg !== undefined) updatedTrend = changes.paxg;
+              } else if (asset.key === 'scc') {
+                if (prices.scc_php) updatedPrice = prices.scc_php;
+                if (changes.scc !== undefined) updatedTrend = changes.scc;
+              } else if (asset.key === 'spc') {
+                if (prices.spc_php) updatedPrice = prices.spc_php;
+                if (changes.spc !== undefined) updatedTrend = changes.spc;
+              } else if (asset.key === 'rcr') {
+                if (prices.rcr_php) updatedPrice = prices.rcr_php;
+                if (changes.rcr !== undefined) updatedTrend = changes.rcr;
+              } else if (asset.key === 'manulife') {
+                if (prices.manulife_php) updatedPrice = prices.manulife_php;
+                if (changes.manulife !== undefined) updatedTrend = changes.manulife;
               }
-
-              const diffPct = asset.currentPricePHP > 0 ? ((updatedPrice - asset.currentPricePHP) / asset.currentPricePHP) * 100 : 0;
 
               return {
                 ...asset,
                 currentPricePHP: updatedPrice,
-                change24h: Number((change24h + diffPct).toFixed(2)),
+                change24h: updatedTrend,
               };
             });
           });
-        } else {
-          runClientSideTick();
         }
       } catch (err) {
-        // Static server / GitHub Pages fallback - run smooth real-time tick engine on client
-        runClientSideTick();
+        // Silent catch
       }
     };
 
     fetchTicks();
-    const interval = setInterval(fetchTicks, 3500);
+    const interval = setInterval(fetchTicks, 10000);
     return () => clearInterval(interval);
   }, [email]);
 
@@ -1388,20 +1353,38 @@ export default function App() {
 
         const updatedAssets = assets.map((asset) => {
           let updatedPrice = asset.currentPricePHP;
+          let updatedTrend = asset.change24h;
 
-          if (asset.key === 'btc' && prices.btc_usd) updatedPrice = prices.btc_usd * currentUsdRate;
+          if (asset.key === 'btc' && prices.btc_usd) {
+            updatedPrice = prices.btc_usd * currentUsdRate;
+            if (data.changes24h?.btc !== undefined) updatedTrend = data.changes24h.btc;
+          }
           else if (asset.key === 'paxg' && prices.paxg_usd) {
             updatedPrice = prices.paxg_usd * currentUsdRate;
             newPaxgPricePHP = updatedPrice;
+            if (data.changes24h?.paxg !== undefined) updatedTrend = data.changes24h.paxg;
           }
-          else if (asset.key === 'scc' && prices.scc_php) updatedPrice = prices.scc_php;
-          else if (asset.key === 'spc' && prices.spc_php) updatedPrice = prices.spc_php;
-          else if (asset.key === 'rcr' && prices.rcr_php) updatedPrice = prices.rcr_php;
-          else if (asset.key === 'manulife' && prices.manulife_php) updatedPrice = prices.manulife_php;
+          else if (asset.key === 'scc' && prices.scc_php) {
+            updatedPrice = prices.scc_php;
+            if (data.changes24h?.scc !== undefined) updatedTrend = data.changes24h.scc;
+          }
+          else if (asset.key === 'spc' && prices.spc_php) {
+            updatedPrice = prices.spc_php;
+            if (data.changes24h?.spc !== undefined) updatedTrend = data.changes24h.spc;
+          }
+          else if (asset.key === 'rcr' && prices.rcr_php) {
+            updatedPrice = prices.rcr_php;
+            if (data.changes24h?.rcr !== undefined) updatedTrend = data.changes24h.rcr;
+          }
+          else if (asset.key === 'manulife' && prices.manulife_php) {
+            updatedPrice = prices.manulife_php;
+            if (data.changes24h?.manulife !== undefined) updatedTrend = data.changes24h.manulife;
+          }
 
           return {
             ...asset,
             currentPricePHP: Number(updatedPrice.toFixed(2)),
+            change24h: updatedTrend,
           };
         });
 

@@ -274,8 +274,8 @@ export default function AssetSleeveTab({
               <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-white/5">
                 <th className="p-5 pl-8">Asset Identifier</th>
                 <th className="p-5">Custodian / Platform</th>
-                <th className="p-5 text-right">Yield / Rate (%)</th>
-                <th className="p-5 text-center">Term / Dates</th>
+                <th className="p-5 text-right">{activeSubTab === 'risk' ? 'Live Market Price (PHP)' : 'Yield / Rate (%)'}</th>
+                <th className="p-5 text-center">{activeSubTab === 'risk' ? '24h Trend / Change' : 'Term / Dates'}</th>
                 <th className="p-5 text-right">Units Held</th>
                 <th className="p-5 text-right">Principal Cost Basis</th>
                 <th className="p-5 text-right">Total Valuation (PHP)</th>
@@ -299,7 +299,16 @@ export default function AssetSleeveTab({
                     </td>
                     <td className="p-5 text-slate-500 dark:text-slate-400 text-xs">{asset.platform}</td>
                     <td className="p-5 text-right text-xs font-mono font-bold">
-                      {asset.yieldPercent !== undefined && asset.yieldPercent !== null ? (
+                      {activeSubTab === 'risk' ? (
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="font-extrabold text-slate-900 dark:text-white text-xs">
+                            ₱{asset.currentPricePHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                          </span>
+                          <span className="px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded text-[9px] font-bold">
+                            Live Feed
+                          </span>
+                        </div>
+                      ) : asset.yieldPercent !== undefined && asset.yieldPercent !== null ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-md font-extrabold inline-flex items-center gap-1">
                             <Percent className="w-2.5 h-2.5" />
@@ -321,7 +330,18 @@ export default function AssetSleeveTab({
                       )}
                     </td>
                     <td className="p-5 text-center text-xs">
-                      {asset.startDate || asset.maturityDate ? (
+                      {activeSubTab === 'risk' ? (
+                        <div className="flex flex-col items-center justify-center space-y-0.5">
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-mono font-bold px-2 py-0.5 rounded ${
+                            (asset.change24h || 0) >= 0 
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300' 
+                              : 'bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300'
+                          }`}>
+                            {(asset.change24h || 0) >= 0 ? '+' : ''}{(asset.change24h || 0).toFixed(2)}%
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-sans">Market Performance</span>
+                        </div>
+                      ) : asset.startDate || asset.maturityDate ? (
                         <div className="flex flex-col items-center justify-center space-y-0.5">
                           {asset.startDate && (
                             <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 dark:text-slate-400 font-mono">
