@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { parseFormattedNumber } from '../utils/mathParser';
 import {
   History,
   Plus,
@@ -158,8 +159,8 @@ export default function TransactionHistoryTab({
     if (!newDate || !newAsset || !newAmount || !newDetails) return;
 
     let formattedAmount = newAmount;
-    if (!isNaN(Number(newAmount.replace(/[^0-9.-]/g, '')))) {
-      const numericVal = Number(newAmount.replace(/[^0-9.-]/g, ''));
+    const numericVal = parseFormattedNumber(newAmount);
+    if (numericVal !== 0 || newAmount.trim() !== '') {
       const sign = numericVal > 0 && (newType === 'Deposit' || newType === 'Buy' || newType === 'Transfer' || newType === 'Maturity' || newType === 'Lend') ? '+' : '';
       formattedAmount = `${sign}₱${numericVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }

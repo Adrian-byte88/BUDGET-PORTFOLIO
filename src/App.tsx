@@ -34,6 +34,7 @@ import MarketCycleAuditTab, {
 import SettingsModal from './components/SettingsModal';
 import PhilippineClock from './components/PhilippineClock';
 import ProPaywallOverlay from './components/ProPaywallOverlay';
+import { getAssetValuation } from './lib/formatters';
 import { AIPopupModal } from './components/AIPopupModal';
 import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check, Lock, Crown } from 'lucide-react';
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
@@ -850,20 +851,36 @@ export default function App() {
   const handleApplyAIAction = (msgId: string, action: { type: string; payload: any }) => {
     try {
       const { type, payload } = action;
-      if (type === 'ADD_MONEY' || type === 'WITHDRAW_MONEY') {
+      if (type === 'ADD_MONEY' || type === 'WITHDRAW_MONEY' || type === 'TRANSFER_MONEY') {
         const isDeposit = type === 'ADD_MONEY';
-        const units = Number(payload.units) || 0;
-        const assetKey = payload.assetKey || 'hys';
+        const isTransfer = type === 'TRANSFER_MONEY';
+        const amount = Number(payload.amount || payload.units) || 0;
+        const assetKey = payload.assetKey || payload.fromAssetKey || 'hys';
         const targetAsset = assets.find((a) => a.key === assetKey || (assetKey === 'hys' && a.key === 'hys'));
         const assetName = targetAsset ? targetAsset.name : 'High-Yield Savings (HYS)';
 
         setAssets((prev) => {
           const nextAssets = prev.map((a) => {
-            if (a.key === assetKey || (assetKey === 'hys' && a.key === 'hys')) {
-              const diff = isDeposit ? units : -units;
-              const newUnits = Math.max(0, a.units + diff);
-              return { ...a, units: newUnits };
+            const isTarget = a.key === assetKey || (assetKey === 'hys' && a.key === 'hys');
+            const isRecipient = isTransfer && payload.toAssetKey && (a.key === payload.toAssetKey || (payload.toAssetKey === 'tbills' && a.key === 'tbills'));
+
+            if (isTarget) {
+              const diff = isDeposit ? amount : -amount;
+              const isSafeShield = a.class === 'safe' || a.assetType === 'deposit' || a.assetType === 'cash' || a.assetType === 'hys' || a.key === 'hys' || a.key === 'tbills';
+              const newCost = Math.max(0, (a.costBasisPHP || 0) + diff);
+              const price = a.currentPricePHP > 0 ? a.currentPricePHP : 1;
+              const newUnits = isSafeShield ? newCost / price : Math.max(0, a.units + diff);
+              return { ...a, costBasisPHP: newCost, units: newUnits };
             }
+
+            if (isRecipient) {
+              const isSafeShield = a.class === 'safe' || a.assetType === 'deposit' || a.assetType === 'cash' || a.assetType === 'hys' || a.key === 'hys' || a.key === 'tbills';
+              const newCost = (a.costBasisPHP || 0) + amount;
+              const price = a.currentPricePHP > 0 ? a.currentPricePHP : 1;
+              const newUnits = isSafeShield ? newCost / price : a.units + amount;
+              return { ...a, costBasisPHP: newCost, units: newUnits };
+            }
+
             return a;
           });
           if (email) {
@@ -872,15 +889,27 @@ export default function App() {
           return nextAssets;
         });
 
-        handleAddTransaction({
-          date: new Date().toISOString().split('T')[0],
-          asset: assetName,
-          type: isDeposit ? 'Deposit' : 'Withdraw',
-          amount: `${isDeposit ? '+' : '-'}₱${units.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          details: `AI Assistant ${isDeposit ? 'Deposit' : 'Withdrawal'} in ${assetName}`
-        });
-
-        triggerToast('Asset Balance Updated', `${isDeposit ? 'Deposited' : 'Withdrew'} ₱${units.toLocaleString()} in HYS.`, 'success');
+        if (isTransfer) {
+          const toTarget = assets.find((a) => a.key === payload.toAssetKey || (payload.toAssetKey === 'tbills' && a.key === 'tbills'));
+          const toName = toTarget ? toTarget.name : 'Treasury Bills (T-Bills)';
+          handleAddTransaction({
+            date: new Date().toISOString().split('T')[0],
+            asset: `${assetName} → ${toName}`,
+            type: 'Transfer',
+            amount: `₱${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            details: `AI Assistant Principal Reallocation: Transferred ₱${amount.toLocaleString()} from ${assetName} to ${toName}`
+          });
+          triggerToast('Funds Reallocated', `Transferred ₱${amount.toLocaleString()} principal cost basis from ${assetName} to ${toName}.`, 'success');
+        } else {
+          handleAddTransaction({
+            date: new Date().toISOString().split('T')[0],
+            asset: assetName,
+            type: isDeposit ? 'Deposit' : 'Withdraw',
+            amount: `${isDeposit ? '+' : '-'}₱${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            details: `AI Assistant Principal ${isDeposit ? 'Deposit' : 'Withdrawal'} in ${assetName}`
+          });
+          triggerToast('Principal Cost Basis Updated', `${isDeposit ? 'Added' : 'Deducted'} ₱${amount.toLocaleString()} in ${assetName} principal cost basis.`, 'success');
+        }
       } else if (type === 'RECORD_EXPENSE') {
         handleAddExpense({
           category: payload.category || 'Lifestyle',
@@ -906,6 +935,28 @@ export default function App() {
           amountPHP: totalCost,
           date: new Date().toISOString().split('T')[0],
           notes: 'Gemini AI Assistant Trade record'
+        });
+      } else if (type === 'REGISTER_ASSET') {
+        const costBasis = Number(payload.costBasisPHP) || 0;
+        const currentPrice = Number(payload.currentPricePHP) || 1;
+        const assetClass = payload.class || 'safe';
+        const assetType = payload.assetType || (assetClass === 'liability' ? 'debt' : 'deposit');
+        const isSafeOrLiability = assetClass === 'safe' || assetClass === 'liability' || assetType === 'cash' || assetType === 'deposit' || assetType === 'hys' || assetType === 'debt' || assetType === 'credit';
+        const computedUnits = isSafeOrLiability ? costBasis : (Number(payload.units) || (costBasis > 0 ? costBasis / currentPrice : 1));
+
+        handleAddAsset({
+          key: payload.key || `asset_${Date.now()}`,
+          name: payload.name || 'New Asset Position',
+          platform: payload.platform || 'Self Custody / Bank',
+          class: assetClass,
+          assetType,
+          costBasisPHP: costBasis,
+          units: computedUnits,
+          currentPricePHP: currentPrice,
+          change24h: 0,
+          yieldPercent: payload.yieldPercent !== undefined ? Number(payload.yieldPercent) : undefined,
+          startDate: payload.startDate || undefined,
+          maturityDate: payload.maturityDate || undefined
         });
       } else if (type === 'UPDATE_TARGET_ALLOCATION') {
         setTargetAllocation(Number(payload.value));
@@ -1169,29 +1220,29 @@ export default function App() {
 
   // Add new asset position
   const handleAddAsset = (newAsset: AssetPosition) => {
-    if (assets.some((a) => a.key === newAsset.key)) {
-      triggerToast('Asset ID Collision', `An asset with key "${newAsset.key}" already exists in index registries.`, 'error');
-      return;
+    let targetAsset = { ...newAsset };
+    if (assets.some((a) => a.key === targetAsset.key)) {
+      targetAsset.key = `${targetAsset.key}_${Date.now()}`;
     }
     setAssets((prev) => {
-      const nextAssets = [...prev, newAsset];
+      const nextAssets = [...prev, targetAsset];
       if (email) {
         setDoc(doc(db, "users", email, "financialData", "data"), { assets: nextAssets }, { merge: true }).catch(console.error);
       }
       return nextAssets;
     });
 
-    const totalVal = newAsset.units * (newAsset.currentPricePHP || 1);
-    const isCashOrDeposit = newAsset.key === 'hys' || newAsset.assetType === 'cash' || newAsset.assetType === 'deposit';
+    const totalVal = targetAsset.costBasisPHP || (targetAsset.units * (targetAsset.currentPricePHP || 1));
+    const isCashOrDeposit = targetAsset.key === 'hys' || targetAsset.assetType === 'cash' || targetAsset.assetType === 'deposit';
     handleAddTransaction({
       date: new Date().toISOString().split('T')[0],
-      asset: newAsset.name,
+      asset: targetAsset.name,
       type: isCashOrDeposit ? 'Deposit' : 'Buy',
       amount: `+₱${totalVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      details: `New asset position registered (${newAsset.units.toLocaleString()} units)`
+      details: `New asset position registered (${targetAsset.platform})`
     });
 
-    triggerToast('Asset Position Added', `Successfully registered "${newAsset.name}" to asset tables.`, 'success');
+    triggerToast('Asset Position Added', `Successfully registered "${targetAsset.name}" to asset tables.`, 'success');
   };
 
   // Add custom alert trigger
@@ -1672,7 +1723,7 @@ export default function App() {
           <SocialFamilyHub
             goals={goals}
             expenses={expenses}
-            totalAssets={assets.filter(a => a.class === 'safe' || a.class === 'risk' || a.class === 'physical').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0)}
+            totalAssets={assets.filter(a => a.class === 'safe' || a.class === 'risk' || a.class === 'physical').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0)}
             onAddGoal={handleAddGoal}
             onEditGoal={handleEditGoal}
             onDeleteGoal={handleDeleteGoal}
@@ -1817,10 +1868,12 @@ export default function App() {
                           </span>
                         </div>
                         <p className="text-[10px] font-medium leading-normal text-slate-600 dark:text-slate-300">
-                          {m.action.type === 'ADD_MONEY' && `Deposit ₱${m.action.payload.units?.toLocaleString()} to High-Yield Savings.`}
-                          {m.action.type === 'WITHDRAW_MONEY' && `Withdraw ₱${m.action.payload.units?.toLocaleString()} from High-Yield Savings.`}
-                          {m.action.type === 'RECORD_EXPENSE' && `Log outflow of ₱${m.action.payload.amount?.toLocaleString()} for "${m.action.payload.description}" under "${m.action.payload.category}".`}
+                          {m.action.type === 'ADD_MONEY' && `Deposit ₱${(m.action.payload.amount || m.action.payload.units)?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to ${m.action.payload.assetKey ? m.action.payload.assetKey.toUpperCase() : 'HYS'} Principal Cost Basis.`}
+                          {m.action.type === 'WITHDRAW_MONEY' && `Withdraw ₱${(m.action.payload.amount || m.action.payload.units)?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from ${m.action.payload.assetKey ? m.action.payload.assetKey.toUpperCase() : 'HYS'} Principal Cost Basis.`}
+                          {m.action.type === 'TRANSFER_MONEY' && `Transfer ₱${m.action.payload.amount?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} from ${(m.action.payload.fromAssetKey || 'HYS').toUpperCase()} to ${(m.action.payload.toAssetKey || 'TBILLS').toUpperCase()} Principal Cost Basis.`}
+                          {m.action.type === 'RECORD_EXPENSE' && `Log outflow of ₱${m.action.payload.amount?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} for "${m.action.payload.description}" under "${m.action.payload.category}".`}
                           {m.action.type === 'RECORD_TRADE' && `Record trade: ${m.action.payload.action} ${m.action.payload.units} units of ${m.action.payload.assetKey?.toUpperCase()} at ₱${m.action.payload.pricePHP?.toLocaleString() || 'market price'}.`}
+                          {m.action.type === 'REGISTER_ASSET' && `Register new ${(m.action.payload.class || 'SAFE').toUpperCase()} position: "${m.action.payload.name}" (${m.action.payload.platform || 'Bank'}) with Principal Basis ₱${(m.action.payload.costBasisPHP || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${m.action.payload.yieldPercent ? ` @ ${m.action.payload.yieldPercent}% rate` : ''}${m.action.payload.maturityDate ? ` (Matures ${m.action.payload.maturityDate})` : ''}.`}
                           {m.action.type === 'UPDATE_TARGET_ALLOCATION' && `Adjust Safe Shield allocation target to ${m.action.payload.value}%.`}
                         </p>
                         <button

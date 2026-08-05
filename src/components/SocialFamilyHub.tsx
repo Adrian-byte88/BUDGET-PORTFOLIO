@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FamilyGoal, ExpenseEntry } from '../types';
 import { Users, Target, Plus, Share2, Copy, AlertCircle, CheckCircle2, UserCheck, Pencil, Trash2 } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
+import { parseFormattedNumber } from '../utils/mathParser';
 
 interface SocialFamilyHubProps {
   goals: FamilyGoal[];
@@ -103,8 +104,8 @@ export default function SocialFamilyHub({
     onEditGoal({
       id: editingGoal.id,
       title: editTitle,
-      targetPHP: Number(editTargetPHP) || 0,
-      currentPHP: Number(editCurrentPHP) || 0,
+      targetPHP: parseFormattedNumber(editTargetPHP),
+      currentPHP: parseFormattedNumber(editCurrentPHP),
       deadline: editDeadline,
     });
 
@@ -117,7 +118,7 @@ export default function SocialFamilyHub({
 
     onAddGoal({
       title: goalTitle,
-      targetPHP: Number(goalTarget),
+      targetPHP: parseFormattedNumber(goalTarget),
       currentPHP: 0,
       deadline: goalDeadline,
     });
@@ -137,7 +138,7 @@ export default function SocialFamilyHub({
     e.preventDefault();
     if (!selectedGoalId || !contributionAmt) return;
 
-    onUpdateGoalContribution(selectedGoalId, Number(contributionAmt));
+    onUpdateGoalContribution(selectedGoalId, parseFormattedNumber(contributionAmt));
     setContributionAmt('');
     setSelectedGoalId(null);
   };

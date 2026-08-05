@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ExpenseEntry, BudgetLimit } from '../types';
 import { Receipt, Plus, AlertTriangle, CreditCard, RefreshCw, Share2, DollarSign, ArrowRightLeft, FileDown, ShieldCheck } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
+import { parseFormattedNumber } from '../utils/mathParser';
 
 interface LedgerTabProps {
   expenses: ExpenseEntry[];
@@ -52,7 +53,7 @@ export default function LedgerTab({
 
   const handleExpenseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amtNum = Number(amount);
+    const amtNum = parseFormattedNumber(amount);
     if (!amtNum || amtNum <= 0 || !desc) return;
 
     // Convert to PHP based on current rate table
@@ -75,7 +76,7 @@ export default function LedgerTab({
   };
 
   const handleCalculateConversion = () => {
-    const amt = Number(calcFromAmt);
+    const amt = parseFormattedNumber(calcFromAmt);
     if (!amt) return;
     const fromRate = exchangeRates[calcFromCurr] || 1;
     const toRate = exchangeRates[calcToCurr] || 1;
@@ -227,7 +228,7 @@ export default function LedgerTab({
                               className="w-20"
                            />
                            <button onClick={() => {
-                              onAdjustExpense(exp.id, Number(adjustedAmount));
+                              onAdjustExpense(exp.id, parseFormattedNumber(adjustedAmount));
                               setAdjustingId(null);
                            }} className="text-xs bg-emerald-500 text-white px-2 py-1 rounded">Save</button>
                         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calculator, Check, X, RotateCcw } from 'lucide-react';
-import { safeEvaluate } from '../utils/mathParser';
+import { safeEvaluate, parseFormattedNumber } from '../utils/mathParser';
 
 interface SmartCalculatorInputProps {
   id?: string;
@@ -43,7 +43,7 @@ export default function SmartCalculatorInput({
         setRealtimeEval(null);
       }
     } else {
-      const num = parseFloat(calcExpr);
+      const num = parseFormattedNumber(calcExpr);
       setRealtimeEval(!isNaN(num) ? num : null);
     }
   }, [calcExpr]);

@@ -3,6 +3,7 @@ import { AssetPosition, TradeEntry, MarketAlert } from '../types';
 import { Sliders, Plus, Play, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, TrendingDown, TrendingUp, Info, Bell, Trash2, Calendar, Percent } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
 import { formatTimeAgo, getAssetValuation } from '../lib/formatters';
+import { parseFormattedNumber } from '../utils/mathParser';
 
 interface AssetSleeveTabProps {
   assets: AssetPosition[];
@@ -140,16 +141,28 @@ export default function AssetSleeveTab({
     e.preventDefault();
     if (!editingAsset) return;
 
-    onUpdateAssetHoldings(editingAsset.key, Number(editUnits), Number(editCost), {
+    const isEditingFixedOrLiability = editClass === 'safe' || editClass === 'liability' || editAssetType === 'cash' || editAssetType === 'deposit' || editAssetType === 'hys' || editAssetType === 'liability';
+    const parsedCost = parseFormattedNumber(editCost);
+    const parsedUnits = isEditingFixedOrLiability ? 1 : (parseFormattedNumber(editUnits) || 1);
+    let parsedPrice = editClass === 'risk' ? parseFormattedNumber(editPrice) : 1;
+    if (editClass === 'risk') {
+      if (parsedPrice <= 0 || (parsedPrice === 1 && parsedCost > 10)) {
+        parsedPrice = parsedUnits > 0 ? parsedCost / parsedUnits : parsedCost;
+      }
+    } else {
+      parsedPrice = 1;
+    }
+
+    onUpdateAssetHoldings(editingAsset.key, parsedUnits, parsedCost, {
       startDate: editStartDate || undefined,
       maturityDate: editMaturityDate || undefined,
-      yieldPercent: editYieldPercent !== '' && !isNaN(Number(editYieldPercent)) ? Number(editYieldPercent) : undefined,
+      yieldPercent: editYieldPercent !== '' && !isNaN(parseFormattedNumber(editYieldPercent)) ? parseFormattedNumber(editYieldPercent) : undefined,
       yieldFrequency: editYieldFrequency,
-      withholdingTaxPercent: editWithholdingTax !== '' && !isNaN(Number(editWithholdingTax)) ? Number(editWithholdingTax) : undefined,
+      withholdingTaxPercent: (editClass === 'liability' || editAssetType === 'liability' || editClass === 'physical') ? 0 : (editWithholdingTax !== '' && !isNaN(parseFormattedNumber(editWithholdingTax)) ? parseFormattedNumber(editWithholdingTax) : undefined),
       assetClass: editClass,
       assetType: editAssetType,
     });
-    onUpdateAssetPrice(editingAsset.key, Number(editPrice));
+    onUpdateAssetPrice(editingAsset.key, parsedPrice);
     setEditingAsset(null);
   };
 
@@ -157,21 +170,33 @@ export default function AssetSleeveTab({
     e.preventDefault();
     if (!newAssetKey || !newAssetName || !newAssetPlatform) return;
 
+    const isNewAssetFixedOrLiability = newAssetClass === 'safe' || newAssetClass === 'liability' || newAssetType === 'cash' || newAssetType === 'deposit' || newAssetType === 'hys' || newAssetType === 'liability';
+    const parsedCost = parseFormattedNumber(newAssetCost);
+    const parsedUnits = isNewAssetFixedOrLiability ? 1 : (parseFormattedNumber(newAssetUnits) || 1);
+    let parsedPrice = newAssetClass === 'risk' ? parseFormattedNumber(newAssetPrice) : 1;
+    if (newAssetClass === 'risk') {
+      if (parsedPrice <= 0 || (parsedPrice === 1 && parsedCost > 10)) {
+        parsedPrice = parsedUnits > 0 ? parsedCost / parsedUnits : parsedCost;
+      }
+    } else {
+      parsedPrice = 1;
+    }
+
     onAddAsset({
       key: newAssetKey.toLowerCase().trim().replace(/\s+/g, '_'),
       name: newAssetName,
       platform: newAssetPlatform,
       class: newAssetClass,
       assetType: newAssetType,
-      units: Number(newAssetUnits) || 0,
-      costBasisPHP: Number(newAssetCost) || 0,
-      currentPricePHP: Number(newAssetPrice) || 0,
+      units: parsedUnits,
+      costBasisPHP: parsedCost,
+      currentPricePHP: parsedPrice,
       change24h: 0,
       startDate: newAssetStartDate || undefined,
       maturityDate: newAssetMaturityDate || undefined,
-      yieldPercent: newAssetYieldPercent !== '' && !isNaN(Number(newAssetYieldPercent)) ? Number(newAssetYieldPercent) : undefined,
+      yieldPercent: newAssetYieldPercent !== '' && !isNaN(parseFormattedNumber(newAssetYieldPercent)) ? parseFormattedNumber(newAssetYieldPercent) : undefined,
       yieldFrequency: newAssetYieldFrequency,
-      withholdingTaxPercent: newAssetWithholdingTax !== '' && !isNaN(Number(newAssetWithholdingTax)) ? Number(newAssetWithholdingTax) : undefined,
+      withholdingTaxPercent: (newAssetClass === 'liability' || newAssetType === 'liability' || newAssetClass === 'physical') ? 0 : (newAssetWithholdingTax !== '' && !isNaN(parseFormattedNumber(newAssetWithholdingTax)) ? parseFormattedNumber(newAssetWithholdingTax) : undefined),
     });
 
     setShowAssetForm(false);
@@ -272,13 +297,27 @@ export default function AssetSleeveTab({
           <table className="w-full text-left border-collapse min-w-[720px]">
             <thead>
               <tr className="bg-slate-50/50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-200 dark:border-white/5">
-                <th className="p-5 pl-8">Asset Identifier</th>
-                <th className="p-5">Custodian / Platform</th>
-                <th className="p-5 text-right">{activeSubTab === 'risk' ? 'Live Market Price (PHP)' : 'Yield / Rate (%)'}</th>
-                <th className="p-5 text-center">{activeSubTab === 'risk' ? '24h Trend / Change' : 'Term / Dates'}</th>
-                <th className="p-5 text-right">Units Held</th>
-                <th className="p-5 text-right">Principal Cost Basis</th>
-                <th className="p-5 text-right">Total Valuation (PHP)</th>
+                <th className="p-5 pl-8">{activeSubTab === 'liability' ? 'Liability / Loan' : 'Asset Identifier'}</th>
+                <th className="p-5">{activeSubTab === 'liability' ? 'Lender / Institution' : 'Custodian / Platform'}</th>
+                <th className="p-5 text-right">
+                  {activeSubTab === 'risk'
+                    ? 'Current Price Quotation (PHP)'
+                    : activeSubTab === 'physical'
+                    ? 'Appreciation / Depreciation Rate (%)'
+                    : activeSubTab === 'liability'
+                    ? 'Interest Rate / APR (%)'
+                    : 'Annual Rate / Yield (%)'}
+                </th>
+                <th className="p-5 text-center">
+                  {activeSubTab === 'risk'
+                    ? '24h Trend / Change'
+                    : activeSubTab === 'liability'
+                    ? 'Loan Term / Payoff Date'
+                    : 'Term / Dates'}
+                </th>
+                {activeSubTab !== 'safe' && activeSubTab !== 'liability' && <th className="p-5 text-right">Units Held</th>}
+                <th className="p-5 text-right">{activeSubTab === 'liability' ? 'Principal Debt Balance' : 'Principal Cost Basis'}</th>
+                <th className="p-5 text-right">{activeSubTab === 'liability' ? 'Total Outstanding Debt (PHP)' : 'Total Valuation (PHP)'}</th>
                 <th className="p-5 text-right pr-8">Actions</th>
               </tr>
             </thead>
@@ -302,31 +341,65 @@ export default function AssetSleeveTab({
                       {activeSubTab === 'risk' ? (
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="font-extrabold text-slate-900 dark:text-white text-xs">
-                            ₱{asset.currentPricePHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                            ₱{((asset.currentPricePHP > 0 && !(asset.currentPricePHP === 1 && asset.costBasisPHP > 10)) ? asset.currentPricePHP : (asset.costBasisPHP / (asset.units || 1))).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                           </span>
-                          <span className="px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded text-[9px] font-bold">
-                            Live Feed
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold border bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20">
+                            Live Market
                           </span>
                         </div>
-                      ) : asset.yieldPercent !== undefined && asset.yieldPercent !== null ? (
+                      ) : activeSubTab === 'liability' ? (
                         <div className="flex flex-col items-end gap-1">
-                          <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 rounded-md font-extrabold inline-flex items-center gap-1">
+                          {asset.yieldPercent !== undefined && asset.yieldPercent !== null && asset.yieldPercent > 0 ? (
+                            <span className="px-2 py-0.5 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 rounded-md font-extrabold inline-flex items-center gap-1 text-xs">
+                              <Percent className="w-2.5 h-2.5" />
+                              {asset.yieldPercent}% {
+                                asset.yieldFrequency === 'monthly' ? 'p.m.' :
+                                asset.yieldFrequency === 'semi-annual' ? '/ 6 mos' :
+                                asset.yieldFrequency === 'quarterly' ? '/ quarter' :
+                                'APR'
+                              }
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs">0.00% APR (Interest-Free)</span>
+                          )}
+                          <span className="text-[9px] text-rose-600 dark:text-rose-400 font-bold">
+                            Loan Interest Rate
+                          </span>
+                        </div>
+                      ) : asset.yieldPercent !== undefined && asset.yieldPercent !== null && asset.yieldPercent !== 0 ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className={`px-2 py-0.5 border rounded-md font-extrabold inline-flex items-center gap-1 ${
+                            asset.yieldPercent > 0
+                              ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                              : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'
+                          }`}>
                             <Percent className="w-2.5 h-2.5" />
-                            {asset.yieldPercent}% {
+                            {asset.yieldPercent > 0 ? `+${asset.yieldPercent}%` : `${asset.yieldPercent}%`} {
                               asset.yieldFrequency === 'monthly' ? 'p.m.' :
                               asset.yieldFrequency === 'semi-annual' ? '/ 6 mos' :
                               asset.yieldFrequency === 'quarterly' ? '/ quarter' :
                               'p.a.'
                             }
                           </span>
-                          {asset.withholdingTaxPercent !== undefined && asset.withholdingTaxPercent > 0 && (
+                          <span className={`text-[9px] font-bold ${
+                            asset.yieldPercent > 0
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-rose-600 dark:text-rose-400'
+                          }`}>
+                            {activeSubTab === 'physical'
+                              ? (asset.yieldPercent > 0 ? 'Appreciation Rate' : 'Depreciation Rate')
+                              : 'Yield Rate'}
+                          </span>
+                          {asset.withholdingTaxPercent !== undefined && asset.withholdingTaxPercent > 0 && activeSubTab !== 'physical' && (
                             <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-500/20">
                               Less {asset.withholdingTaxPercent}% WHT
                             </span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-400 font-normal">-</span>
+                        <span className="text-slate-400 font-normal">
+                          {activeSubTab === 'physical' ? 'Fixed Valuation' : '0.00% p.a.'}
+                        </span>
                       )}
                     </td>
                     <td className="p-5 text-center text-xs">
@@ -341,6 +414,25 @@ export default function AssetSleeveTab({
                           </span>
                           <span className="text-[9px] text-slate-400 font-sans">Market Performance</span>
                         </div>
+                      ) : activeSubTab === 'liability' ? (
+                        asset.startDate || asset.maturityDate ? (
+                          <div className="flex flex-col items-center justify-center space-y-0.5">
+                            {asset.startDate && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 dark:text-slate-400 font-mono">
+                                <Calendar className="w-2.5 h-2.5 text-slate-400" />
+                                <span>Start: <b>{asset.startDate}</b></span>
+                              </span>
+                            )}
+                            {asset.maturityDate && (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400 font-mono font-bold bg-rose-50 dark:bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-500/20">
+                                <Calendar className="w-2.5 h-2.5 text-rose-500" />
+                                <span>Payoff: {asset.maturityDate}</span>
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">Revolving / Open</span>
+                        )
                       ) : asset.startDate || asset.maturityDate ? (
                         <div className="flex flex-col items-center justify-center space-y-0.5">
                           {asset.startDate && (
@@ -360,9 +452,11 @@ export default function AssetSleeveTab({
                         <span className="text-slate-400 text-xs">-</span>
                       )}
                     </td>
-                    <td className="p-5 text-right text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
-                      {asset.units.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                    </td>
+                    {activeSubTab !== 'safe' && activeSubTab !== 'liability' && (
+                      <td className="p-5 text-right text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                        {asset.units.toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                      </td>
+                    )}
                     <td className="p-5 text-right text-xs font-mono text-slate-500">
                       ₱{asset.costBasisPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
@@ -372,7 +466,21 @@ export default function AssetSleeveTab({
                           ₱{totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                         <div className="flex flex-col items-end mt-0.5">
-                          {valuation.isYieldBased ? (
+                          {activeSubTab === 'physical' ? (
+                            valuation.isYieldBased && valuation.interestEarned !== 0 ? (
+                              <span className={`text-[10px] font-bold ${valuation.interestEarned > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                {valuation.interestEarned >= 0 ? '+₱' : '-₱'}{Math.abs(valuation.interestEarned).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {valuation.interestEarned >= 0 ? 'net appreciation' : 'net depreciation'} ({valuation.daysElapsed}d)
+                              </span>
+                            ) : null
+                          ) : activeSubTab === 'liability' ? (
+                            valuation.interestEarned > 0 ? (
+                              <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                +₱{valuation.interestEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} accrued interest ({valuation.daysElapsed}d)
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-medium">Principal Only</span>
+                            )
+                          ) : valuation.isYieldBased ? (
                             <>
                               <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                                 +₱{valuation.interestEarned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} net yield ({valuation.daysElapsed}d)
@@ -391,7 +499,7 @@ export default function AssetSleeveTab({
                           ) : (
                             <div className="flex items-center space-x-1.5">
                               <span className={`text-[10px] font-bold ${isProfitable ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                                {isProfitable ? '+' : ''}₱{profitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {isProfitable ? '+₱' : '-₱'}{Math.abs(profitLoss).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                               {asset.change24h !== undefined && asset.change24h !== 0 && (
                                 <span className={`inline-flex items-center text-[9px] font-extrabold ${asset.change24h >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
@@ -428,7 +536,11 @@ export default function AssetSleeveTab({
                             setEditingAsset(asset);
                             setEditUnits(asset.units.toString());
                             setEditCost(asset.costBasisPHP.toString());
-                            setEditPrice(asset.currentPricePHP.toString());
+                            const isSafe = asset.class === 'safe' || asset.assetType === 'cash' || asset.assetType === 'deposit' || asset.assetType === 'hys';
+                            const effectivePrice = isSafe ? 1 : ((asset.currentPricePHP > 0 && !(asset.currentPricePHP === 1 && asset.costBasisPHP > 10))
+                              ? asset.currentPricePHP
+                              : (asset.costBasisPHP / (asset.units || 1)));
+                            setEditPrice(effectivePrice.toString());
                             setEditClass(asset.class);
                             setEditAssetType(asset.assetType);
                             setEditStartDate(asset.startDate || '');
@@ -449,17 +561,17 @@ export default function AssetSleeveTab({
             </tbody>
             <tfoot className="bg-slate-50 dark:bg-slate-900/90 border-t-2 border-slate-200 dark:border-white/10 font-bold">
               <tr>
-                <td colSpan={5} className="p-5 pl-8 text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                <td colSpan={activeSubTab === 'safe' || activeSubTab === 'liability' ? 4 : 5} className="p-5 pl-8 text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                   {activeSubTab === 'risk' ? '🚀 Total Risk Sleeve Growth' :
                    activeSubTab === 'safe' ? '🛡️ Total Safe Shield Protection' :
-                   activeSubTab === 'physical' ? '🏠 Total Physical Assets' : '💸 Total Liabilities & Debt'}
+                   activeSubTab === 'physical' ? '🏠 Total Physical Assets' : '💸 Total Outstanding Debt & Liabilities'}
                 </td>
                 <td className="p-5 text-right text-xs font-mono font-black text-slate-600 dark:text-slate-400">
                   ₱{(activeSubTab === 'safe' ? safeAssets : activeSubTab === 'risk' ? riskAssets : activeSubTab === 'physical' ? physicalAssets : liabilityAssets).reduce((sum, a) => sum + getAssetValuation(a).principal, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td className="p-5 text-right">
                   <div className="flex flex-col items-end">
-                    <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                    <span className={`text-xs font-black font-mono ${activeSubTab === 'liability' ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
                       ₱{(activeSubTab === 'safe' ? totalSafeValue : activeSubTab === 'risk' ? totalRiskValue : activeSubTab === 'physical' ? totalPhysicalValue : totalLiabilityValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {(() => {
@@ -468,6 +580,29 @@ export default function AssetSleeveTab({
                       const totalVal = list.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
                       const gains = totalVal - totalCost;
                       const gainsPct = totalCost > 0 ? (gains / totalCost) * 100 : 0;
+
+                      if (activeSubTab === 'physical') {
+                        if (gains !== 0) {
+                          return (
+                            <span className={`text-[11px] font-black font-mono mt-0.5 ${gains > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                              {gains > 0 ? '+' : ''}₱{gains.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Net {gains > 0 ? 'Appreciation' : 'Depreciation'} ({gainsPct > 0 ? '+' : ''}{gainsPct.toFixed(2)}%)
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+
+                      if (activeSubTab === 'liability') {
+                        if (gains > 0) {
+                          return (
+                            <span className="text-[11px] font-black font-mono mt-0.5 text-rose-600 dark:text-rose-400">
+                              +₱{gains.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Total Accrued Interest
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+
                       return (
                         <span className={`text-[11px] font-black font-mono mt-0.5 ${gains >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                           {gains >= 0 ? '+' : ''}₱{gains.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Total Gains/Loss ({gainsPct >= 0 ? '+' : ''}{gainsPct.toFixed(2)}%)
@@ -564,36 +699,40 @@ export default function AssetSleeveTab({
                   </select>
                 </div>
               </div>
-              <div>
-                <SmartCalculatorInput
-                  label="Units / Shares volume"
-                  value={editUnits}
-                  onChange={setEditUnits}
-                  currencySymbol=""
-                />
-              </div>
+              {!(editClass === 'safe' || editClass === 'liability' || editAssetType === 'cash' || editAssetType === 'deposit' || editAssetType === 'hys' || editAssetType === 'liability') && (
+                <div>
+                  <SmartCalculatorInput
+                    label="Units / Shares volume"
+                    value={editUnits}
+                    onChange={setEditUnits}
+                    currencySymbol=""
+                  />
+                </div>
+              )}
 
               <div>
                 <SmartCalculatorInput
-                  label="Total Acquisition Cost (PHP)"
+                  label={editClass === 'liability' ? "Principal Loan Balance (PHP)" : editClass === 'physical' ? "Principal Asset Cost Basis (PHP)" : "Total Acquisition Cost (PHP)"}
                   value={editCost}
                   onChange={setEditCost}
                 />
               </div>
 
-              <div>
-                <SmartCalculatorInput
-                  label="Current Price Quotation (PHP)"
-                  value={editPrice}
-                  onChange={setEditPrice}
-                />
-              </div>
+              {editClass === 'risk' && (
+                <div>
+                  <SmartCalculatorInput
+                    label="Current Price Quotation (PHP)"
+                    value={editPrice}
+                    onChange={setEditPrice}
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100 dark:border-white/5">
                 <div>
                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-blue-500" />
-                    <span>Starting Date</span>
+                    <span>{editClass === 'liability' ? 'Loan Start Date' : 'Starting Date'}</span>
                   </label>
                   <input
                     type="date"
@@ -606,7 +745,7 @@ export default function AssetSleeveTab({
                 <div>
                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-blue-500" />
-                    <span>Maturity Date</span>
+                    <span>{editClass === 'liability' ? 'Payoff Target Date' : 'Maturity Date'}</span>
                   </label>
                   <input
                     type="date"
@@ -618,15 +757,22 @@ export default function AssetSleeveTab({
               </div>
 
               <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <Percent className="w-3 h-3 text-emerald-500" />
-                  <span>Yield / Interest Rate</span>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Percent className="w-3 h-3 text-emerald-500" />
+                    <span>{editClass === 'liability' ? 'Loan Interest Rate / APR (%)' : editClass === 'physical' ? 'Annual Rate (Appreciation / Depreciation %)' : 'Yield / Interest Rate'}</span>
+                  </span>
+                  {editClass === 'physical' ? (
+                    <span className="text-[9px] text-slate-400 font-normal">e.g. +5.0 (Appreciates) or -10.0 (Depreciates)</span>
+                  ) : editClass === 'liability' ? (
+                    <span className="text-[9px] text-rose-500 font-normal">e.g. 7.5 (% APR p.a.)</span>
+                  ) : null}
                 </label>
                 <div className="grid grid-cols-5 gap-2">
                   <div className="relative col-span-3">
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="e.g. 5.25"
                       value={editYieldPercent}
                       onChange={(e) => setEditYieldPercent(e.target.value)}
@@ -647,26 +793,28 @@ export default function AssetSleeveTab({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-amber-500" />
-                    <span>Withholding Tax (%)</span>
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-normal">Standard PH: 20%</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="20 (leave blank if 0%)"
-                    value={editWithholdingTax}
-                    onChange={(e) => setEditWithholdingTax(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 pr-8"
-                  />
-                  <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+              {editClass !== 'liability' && editAssetType !== 'liability' && editClass !== 'physical' && (
+                <div>
+                  <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-amber-500" />
+                      <span>Withholding Tax (%)</span>
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-normal">Standard PH: 20%</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="20 (leave blank if 0%)"
+                      value={editWithholdingTax}
+                      onChange={(e) => setEditWithholdingTax(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 pr-8"
+                    />
+                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
                 {onDeleteAsset && (
@@ -784,38 +932,42 @@ export default function AssetSleeveTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <SmartCalculatorInput
-                    label="Units Count"
-                    value={newAssetUnits}
-                    onChange={setNewAssetUnits}
-                    currencySymbol=""
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                {!(newAssetClass === 'safe' || newAssetClass === 'liability' || newAssetType === 'cash' || newAssetType === 'deposit' || newAssetType === 'hys' || newAssetType === 'liability') && (
+                  <div>
+                    <SmartCalculatorInput
+                      label={newAssetClass === 'physical' ? "Units / Quantity" : "Units Count"}
+                      value={newAssetUnits}
+                      onChange={setNewAssetUnits}
+                      currencySymbol=""
+                    />
+                  </div>
+                )}
 
                 <div>
                   <SmartCalculatorInput
-                    label="Cost Basis"
+                    label={newAssetClass === 'liability' ? "Principal Loan Balance (PHP)" : newAssetClass === 'physical' ? "Principal Asset Cost Basis (PHP)" : "Cost Basis"}
                     value={newAssetCost}
                     onChange={setNewAssetCost}
                   />
                 </div>
 
-                <div>
-                  <SmartCalculatorInput
-                    label="Price Per Unit"
-                    value={newAssetPrice}
-                    onChange={setNewAssetPrice}
-                  />
-                </div>
+                {newAssetClass === 'risk' && (
+                  <div>
+                    <SmartCalculatorInput
+                      label="Price Per Unit (PHP)"
+                      value={newAssetPrice}
+                      onChange={setNewAssetPrice}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100 dark:border-white/5">
                 <div>
                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-blue-500" />
-                    <span>Starting Date</span>
+                    <span>{newAssetClass === 'liability' ? 'Loan Start Date' : 'Starting Date'}</span>
                   </label>
                   <input
                     type="date"
@@ -828,7 +980,7 @@ export default function AssetSleeveTab({
                 <div>
                   <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-blue-500" />
-                    <span>Maturity Date</span>
+                    <span>{newAssetClass === 'liability' ? 'Payoff Target Date' : 'Maturity Date'}</span>
                   </label>
                   <input
                     type="date"
@@ -840,15 +992,22 @@ export default function AssetSleeveTab({
               </div>
 
               <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <Percent className="w-3 h-3 text-emerald-500" />
-                  <span>Yield / Interest Rate</span>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Percent className="w-3 h-3 text-emerald-500" />
+                    <span>{newAssetClass === 'liability' ? 'Loan Interest Rate / APR (%)' : newAssetClass === 'physical' ? 'Annual Rate (Appreciation / Depreciation %)' : 'Yield / Interest Rate'}</span>
+                  </span>
+                  {newAssetClass === 'physical' ? (
+                    <span className="text-[9px] text-slate-400 font-normal">e.g. +5.0 (Appreciates) or -10.0 (Depreciates)</span>
+                  ) : newAssetClass === 'liability' ? (
+                    <span className="text-[9px] text-rose-500 font-normal">e.g. 7.5 (% APR p.a.)</span>
+                  ) : null}
                 </label>
                 <div className="grid grid-cols-5 gap-2">
                   <div className="relative col-span-3">
                     <input
-                      type="number"
-                      step="0.01"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="e.g. 5.25"
                       value={newAssetYieldPercent}
                       onChange={(e) => setNewAssetYieldPercent(e.target.value)}
@@ -869,26 +1028,28 @@ export default function AssetSleeveTab({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-amber-500" />
-                    <span>Withholding Tax (%)</span>
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-normal">Standard PH: 20%</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="20 (leave blank if 0%)"
-                    value={newAssetWithholdingTax}
-                    onChange={(e) => setNewAssetWithholdingTax(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 pr-8"
-                  />
-                  <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+              {newAssetClass !== 'liability' && newAssetType !== 'liability' && newAssetClass !== 'physical' && (
+                <div>
+                  <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-amber-500" />
+                      <span>Withholding Tax (%)</span>
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-normal">Standard PH: 20%</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="20 (leave blank if 0%)"
+                      value={newAssetWithholdingTax}
+                      onChange={(e) => setNewAssetWithholdingTax(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 pr-8"
+                    />
+                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">%</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-white/5">
                 <button

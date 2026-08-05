@@ -1,9 +1,12 @@
 /**
  * Safely evaluates simple mathematical expressions in real-time.
  * Supports +, -, *, /, parenthesis (), and decimals.
+ * Automatically strips commas formatted as thousands separators (e.g. 34,007.89).
  */
 export function safeEvaluate(expr: string): number {
-  const clean = expr.replace(/[^0-9+\-*/().]/g, '');
+  if (!expr) return 0;
+  const cleanCommas = String(expr).replace(/,/g, '');
+  const clean = cleanCommas.replace(/[^0-9+\-*/().]/g, '');
   if (!clean) return 0;
 
   try {
@@ -83,4 +86,18 @@ export function safeEvaluate(expr: string): number {
     console.error('Math evaluation failed for expr:', expr, e);
     return NaN;
   }
+}
+
+/**
+ * Parses numbers with optional commas (e.g. "34,007.89", "1,250,000", "₱34,007.89")
+ * into a valid JS number. Returns 0 if invalid.
+ */
+export function parseFormattedNumber(val: any): number {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const str = String(val).replace(/,/g, '').trim();
+  const res = safeEvaluate(str);
+  if (!isNaN(res)) return res;
+  const num = Number(str.replace(/[^0-9.-]/g, ''));
+  return isNaN(num) ? 0 : num;
 }

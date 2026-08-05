@@ -16,6 +16,7 @@ import { AssetPosition, MarketAlert } from '../types';
 import { AIPopupModal } from './AIPopupModal';
 import { getAssetValuation, formatTimeAgo } from '../lib/formatters';
 import SmartCalculatorInput from './SmartCalculatorInput';
+import { parseFormattedNumber } from '../utils/mathParser';
 import {
   ShieldAlert,
   ShieldCheck,
@@ -427,7 +428,7 @@ export default function MyFinancialPortfolio({
     return saved || '9000';
   });
 
-  const monthlyLivingExpenses = Number(monthlyLivingExpensesInput) > 0 ? Number(monthlyLivingExpensesInput) : 9000;
+  const monthlyLivingExpenses = parseFormattedNumber(monthlyLivingExpensesInput) > 0 ? parseFormattedNumber(monthlyLivingExpensesInput) : 9000;
 
   useEffect(() => {
     localStorage.setItem('monthly_living_expenses', monthlyLivingExpensesInput);
@@ -771,8 +772,7 @@ export default function MyFinancialPortfolio({
                     label=""
                     value={targetAllocation.toString()}
                     onChange={(val) => {
-                      const parsedVal = val.replace(/[^0-9.]/g, '');
-                      const num = parseFloat(parsedVal);
+                      const num = parseFormattedNumber(val);
                       if (!isNaN(num) && onUpdateTargetAllocation) {
                         onUpdateTargetAllocation(Math.min(95, Math.max(50, num)));
                       }
@@ -1276,12 +1276,10 @@ export default function MyFinancialPortfolio({
                     {isEditingRiskSleeveTargets ? (
                       <div className="flex items-center justify-end space-x-1">
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
+                          type="text"
+                          inputMode="decimal"
                           value={targetCryptoGoldOfTotal}
-                          onChange={(e) => setTargetCryptoGoldOfTotal(parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setTargetCryptoGoldOfTotal(parseFormattedNumber(e.target.value))}
                           className="w-20 px-2 py-1 text-xs font-mono text-right bg-white dark:bg-slate-800 border border-blue-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
                         />
                         <span className="text-xs text-slate-400 font-mono">%</span>
@@ -1313,12 +1311,10 @@ export default function MyFinancialPortfolio({
                     {isEditingRiskSleeveTargets ? (
                       <div className="flex items-center justify-end space-x-1">
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
+                          type="text"
+                          inputMode="decimal"
                           value={targetReitOfTotal}
-                          onChange={(e) => setTargetReitOfTotal(parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setTargetReitOfTotal(parseFormattedNumber(e.target.value))}
                           className="w-20 px-2 py-1 text-xs font-mono text-right bg-white dark:bg-slate-800 border border-blue-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
                         />
                         <span className="text-xs text-slate-400 font-mono">%</span>
@@ -1350,12 +1346,10 @@ export default function MyFinancialPortfolio({
                     {isEditingRiskSleeveTargets ? (
                       <div className="flex items-center justify-end space-x-1">
                         <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
+                          type="text"
+                          inputMode="decimal"
                           value={targetStockOfTotal}
-                          onChange={(e) => setTargetStockOfTotal(parseFloat(e.target.value) || 0)}
+                          onChange={(e) => setTargetStockOfTotal(parseFormattedNumber(e.target.value))}
                           className="w-20 px-2 py-1 text-xs font-mono text-right bg-white dark:bg-slate-800 border border-blue-500 rounded text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
                         />
                         <span className="text-xs text-slate-400 font-mono">%</span>
@@ -1423,7 +1417,8 @@ export default function MyFinancialPortfolio({
               <div className="flex items-center space-x-1">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">₱</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={monthlyLivingExpensesInput}
                   onChange={(e) => setMonthlyLivingExpensesInput(e.target.value)}
                   className="w-24 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-xs font-mono font-bold text-slate-900 dark:text-white px-2 py-1 rounded focus:outline-none focus:border-blue-500"

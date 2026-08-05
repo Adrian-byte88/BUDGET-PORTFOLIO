@@ -68,11 +68,36 @@ export interface AssetValuationResult {
 }
 
 export function getAssetValuation(asset: AssetPosition): AssetValuationResult {
-  const baseMarketVal = asset.units * asset.currentPricePHP;
-  const principal = asset.costBasisPHP > 0 ? asset.costBasisPHP : baseMarketVal;
-  const withholdingTaxRate = (asset.withholdingTaxPercent && asset.withholdingTaxPercent > 0) ? asset.withholdingTaxPercent : 0;
+  const isSafeOrCash = asset.class === 'safe' || asset.assetType === 'cash' || asset.assetType === 'deposit' || asset.assetType === 'hys';
+  const isPhysical = asset.class === 'physical' || asset.assetType === 'property';
+  const isLiability = asset.class === 'liability' || asset.assetType === 'liability';
 
-  if (asset.yieldPercent && asset.yieldPercent > 0 && principal > 0) {
+  // Calculate effective price per unit in PHP for market-traded risk assets
+  let effectivePrice = asset.currentPricePHP;
+  if (!isSafeOrCash && !isPhysical && !isLiability) {
+    if (!effectivePrice || effectivePrice <= 0 || (effectivePrice === 1 && asset.costBasisPHP > 10 && asset.units <= 10)) {
+      effectivePrice = asset.units > 0 ? asset.costBasisPHP / asset.units : asset.costBasisPHP;
+    }
+  } else {
+    effectivePrice = 1;
+  }
+
+  const costBasis = (asset.costBasisPHP !== undefined && asset.costBasisPHP !== null && !isNaN(asset.costBasisPHP)) ? asset.costBasisPHP : 0;
+
+  let baseMarketVal = 0;
+  if (isPhysical || isLiability || isSafeOrCash) {
+    baseMarketVal = costBasis;
+  } else {
+    const units = asset.units > 0 ? asset.units : 1;
+    baseMarketVal = units * effectivePrice;
+  }
+
+  const principal = (isPhysical || isLiability || isSafeOrCash) ? costBasis : (costBasis > 0 ? costBasis : baseMarketVal);
+  
+  // Liabilities never have withholding tax applied to interest owed
+  const withholdingTaxRate = isLiability ? 0 : ((asset.withholdingTaxPercent && asset.withholdingTaxPercent > 0) ? asset.withholdingTaxPercent : 0);
+
+  if (asset.yieldPercent !== undefined && asset.yieldPercent !== null && asset.yieldPercent !== 0 && principal > 0) {
     const now = new Date();
     const startDate = asset.startDate ? new Date(asset.startDate) : null;
     const maturityDate = asset.maturityDate ? new Date(asset.maturityDate) : null;
@@ -95,11 +120,12 @@ export function getAssetValuation(asset: AssetPosition): AssetValuationResult {
       const diffMs = Math.max(0, calcEnd.getTime() - start.getTime());
       const daysElapsed = Math.max(0, diffMs / (1000 * 60 * 60 * 24));
 
-      // Simple Interest accrued gross: Principal * (annualRate / 100) * (daysElapsed / 365)
+      // Simple Interest / Appreciation / Depreciation:
+      // Gross interest/change = Principal * (annualRate / 100) * (daysElapsed / 365)
       const grossInterestEarned = principal * (annualRate / 100) * (daysElapsed / 365);
-      const taxWithheld = grossInterestEarned * (withholdingTaxRate / 100);
+      const taxWithheld = grossInterestEarned > 0 ? grossInterestEarned * (withholdingTaxRate / 100) : 0;
       const netInterestEarned = grossInterestEarned - taxWithheld;
-      const totalValue = principal + netInterestEarned;
+      const totalValue = Math.max(0, baseMarketVal + netInterestEarned);
 
       let grossExpectedMaturityVal = grossInterestEarned;
       let totalTermDays = Math.max(1, Math.round(daysElapsed));
@@ -112,8 +138,8 @@ export function getAssetValuation(asset: AssetPosition): AssetValuationResult {
         grossExpectedMaturityVal = principal * (annualRate / 100);
       }
 
-      const taxWithheldAtMaturity = grossExpectedMaturityVal * (withholdingTaxRate / 100);
-      const expectedMaturityValue = principal + (grossExpectedMaturityVal - taxWithheldAtMaturity);
+      const taxWithheldAtMaturity = grossExpectedMaturityVal > 0 ? grossExpectedMaturityVal * (withholdingTaxRate / 100) : 0;
+      const expectedMaturityValue = Math.max(0, baseMarketVal + (grossExpectedMaturityVal - taxWithheldAtMaturity));
 
       return {
         totalValue,
@@ -128,11 +154,11 @@ export function getAssetValuation(asset: AssetPosition): AssetValuationResult {
         isYieldBased: true,
       };
     } else {
-      // No dates provided, compute 1-year annual yield accrued or base annual yield
+      // No dates provided, compute 1-year annual yield / appreciation / depreciation
       const grossInterestEarned = principal * (annualRate / 100);
-      const taxWithheld = grossInterestEarned * (withholdingTaxRate / 100);
+      const taxWithheld = grossInterestEarned > 0 ? grossInterestEarned * (withholdingTaxRate / 100) : 0;
       const netInterestEarned = grossInterestEarned - taxWithheld;
-      const totalValue = principal + netInterestEarned;
+      const totalValue = Math.max(0, baseMarketVal + netInterestEarned);
       return {
         totalValue,
         principal,

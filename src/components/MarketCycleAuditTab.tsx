@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AssetPosition, MarketAlert } from '../types';
+import { getAssetValuation } from '../lib/formatters';
 import { AIPopupModal } from './AIPopupModal';
 import {
   Activity,
@@ -496,9 +497,9 @@ export default function MarketCycleAuditTab({
 
     const usdRate = usdPhpRate || 61.24;
     const safeAssetsList = assets.filter((a) => a.class === 'safe' || a.class === 'hys' || a.assetType === 'hys' || a.assetType === 'deposit' || a.assetType === 'cash');
-    const totalSafeVal = safeAssetsList.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+    const totalSafeVal = safeAssetsList.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
     const riskAssetsList = assets.filter((a) => a.class === 'risk' || a.assetType === 'crypto' || a.assetType === 'equity' || a.assetType === 'commodity');
-    const totalRiskVal = riskAssetsList.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+    const totalRiskVal = riskAssetsList.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
     const totalVal = totalSafeVal + totalRiskVal;
     
     const safePct = totalVal > 0 ? (totalSafeVal / totalVal) * 100 : 60;
@@ -680,10 +681,10 @@ export default function MarketCycleAuditTab({
 
   // Dynamic Portfolio Weight Calculations
   const safeAssets = assets.filter((a) => a.class === 'safe');
-  const totalSafeShield = safeAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalSafeShield = safeAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
 
   const riskAssets = assets.filter((a) => a.class === 'risk');
-  const totalRiskSleeve = riskAssets.reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalRiskSleeve = riskAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
 
   const totalPortfolioValue = totalSafeShield + totalRiskSleeve;
   const safeWeight = totalPortfolioValue > 0 ? (totalSafeShield / totalPortfolioValue) * 100 : 0;

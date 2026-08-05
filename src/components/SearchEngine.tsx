@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, ChevronRight, Layout, Compass, DollarSign, Wallet, Target, Tag, Settings, Command, CornerDownLeft } from 'lucide-react';
 import { AssetPosition, ExpenseEntry, FamilyGoal, BudgetLimit } from '../types';
+import { getAssetValuation } from '../lib/formatters';
 
 interface SearchEngineProps {
   assets: AssetPosition[];
@@ -125,7 +126,7 @@ export default function SearchEngine({ assets, expenses, goals, budgets, onSelec
         name: `${a.name} (${a.platform})`,
         id: a.key,
         targetTab: 'assets',
-        subtitle: `Asset Sleeve • ₱${((a.units || 0) * (a.currentPricePHP || 0)).toLocaleString()}`,
+        subtitle: `Asset Sleeve • ₱${getAssetValuation(a).totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         keywords: `${a.class} ${a.name} ${a.platform} ${a.assetType}`
       });
     });

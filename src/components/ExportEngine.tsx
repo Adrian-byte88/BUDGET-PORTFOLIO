@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import { AssetPosition, ExpenseEntry, TradeEntry, FamilyGoal, BudgetLimit } from '../types';
+import { getAssetValuation } from '../lib/formatters';
 import { FileDown, Upload, Copy, FileText, CheckCircle2, ShieldCheck, RefreshCw, Sparkles, Download } from 'lucide-react';
 
 interface ExportEngineProps {
@@ -32,10 +33,10 @@ export default function ExportEngine({
   const [restoring, setRestoring] = useState(false);
 
   // Calculates financial balances and cash flow metrics
-  const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
-  const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
-  const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
-  const totalLiabilities = assets.filter((a) => a.class === 'liability').reduce((sum, a) => sum + (a.units * a.currentPricePHP), 0);
+  const totalSafe = assets.filter((a) => a.class === 'safe').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalRisk = assets.filter((a) => a.class === 'risk').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalPhysical = assets.filter((a) => a.class === 'physical').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalLiabilities = assets.filter((a) => a.class === 'liability').reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
   const totalAssets = totalSafe + totalRisk + totalPhysical;
 
   // Cash Flow & Passive Income Calculations
