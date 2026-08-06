@@ -97,7 +97,7 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
     platform: 'Cold Storage Vault',
     units: 0.12,
     currentPricePHP: 3800000,
-    costBasisPHP: 3200000,
+    costBasisPHP: 384000,
     assetType: 'crypto',
     change24h: 2.14
   },
@@ -169,43 +169,7 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   }
 ];
 
-const DEFAULT_ALERTS: MarketAlert[] = [
-  {
-    id: 'alert-btc-inst',
-    timestamp: '10m ago',
-    asset: 'Bitcoin (BTC)',
-    message: 'Institutional treasury inflows surge 14% WoW following spot ETF clearance.',
-    type: 'up',
-    thresholdPercentage: 5,
-    lastTriggeredDate: new Date(Date.now() - 10 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'alert-usd-php',
-    timestamp: '1h ago',
-    asset: 'USD/PHP Rate',
-    message: 'Bangko Sentral ng Pilipinas maintains policy interest rate; USD/PHP spot rate tracks around ₱61.24.',
-    type: 'info',
-    lastTriggeredDate: new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'alert-paxg-gold',
-    timestamp: '3h ago',
-    asset: 'Pax Gold (PAXG)',
-    message: 'Global central bank bullion demand reaches record quarterly high, reinforcing physical gold floor price.',
-    type: 'up',
-    thresholdPercentage: 3,
-    lastTriggeredDate: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 'alert-macro-vol',
-    timestamp: '5h ago',
-    asset: 'Global Equities',
-    message: 'VIX Volatility Index ticks upward by 4.2% ahead of upcoming macro interest rate decisions.',
-    type: 'volatility',
-    thresholdPercentage: 4,
-    lastTriggeredDate: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString()
-  }
-];
+const DEFAULT_ALERTS: MarketAlert[] = [];
 
 const ADMIN_EMAIL = 'junnelmrfl@gmail.com';
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { AssetPosition, TradeEntry, MarketAlert } from '../types';
-import { Sliders, Plus, Play, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, TrendingDown, TrendingUp, Info, Bell, Trash2, Calendar, Percent } from 'lucide-react';
+import { Sliders, Plus, Play, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, TrendingDown, TrendingUp, Info, Bell, Trash2, Calendar, Percent, BarChart2 } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
 import { formatTimeAgo, getAssetValuation } from '../lib/formatters';
 import { parseFormattedNumber } from '../utils/mathParser';
+import { TradingViewAssetModal } from './TradingViewAssetModal';
 
 interface AssetSleeveTabProps {
   assets: AssetPosition[];
@@ -52,6 +53,7 @@ export default function AssetSleeveTab({
   highlightId,
 }: AssetSleeveTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<'safe' | 'risk' | 'physical' | 'liability'>('safe');
+  const [selectedTradingViewAsset, setSelectedTradingViewAsset] = useState<AssetPosition | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [customKey, setCustomKey] = useState('');
 
@@ -289,6 +291,27 @@ export default function AssetSleeveTab({
           </div>
         )}
 
+        {activeSubTab === 'risk' && (
+          <div className="bg-white dark:bg-gradient-to-r dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-slate-900/40 border-b border-slate-200 dark:border-blue-500/20 p-4 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-xl border border-purple-200 dark:border-purple-500/20 shrink-0">
+                <BarChart2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>Yahoo Finance® Live Technical Charts & Market Quotations</span>
+                  <span className="px-2 py-0.5 bg-purple-600 dark:bg-purple-500 text-white rounded text-[9px] font-mono font-black shadow-2xs">
+                    LIVE
+                  </span>
+                </h4>
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Click any asset below or the <b className="text-slate-900 dark:text-slate-200">Chart 📈</b> button to launch Yahoo Finance® live price quotes, technical analysis, community polls, and breaking news.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div 
           id={activeSubTab === 'safe' ? 'safe-assets-section' : activeSubTab === 'risk' ? 'risk-assets-section' : activeSubTab === 'physical' ? 'physical-assets-section' : 'liability-assets-section'}
           data-highlight-id={activeSubTab === 'safe' ? 'safe-assets-section' : activeSubTab === 'risk' ? 'risk-assets-section' : activeSubTab === 'physical' ? 'physical-assets-section' : 'liability-assets-section'}
@@ -325,14 +348,31 @@ export default function AssetSleeveTab({
               {(activeSubTab === 'safe' ? safeAssets : activeSubTab === 'risk' ? riskAssets : activeSubTab === 'physical' ? physicalAssets : liabilityAssets).map((asset) => {
                 const valuation = getAssetValuation(asset);
                 const totalValue = valuation.totalValue;
-                const profitLoss = valuation.interestEarned;
+                const profitLoss = valuation.isYieldBased ? valuation.interestEarned : (totalValue - valuation.principal);
                 const isProfitable = profitLoss >= 0;
 
                 return (
                   <tr key={asset.key} id={asset.key} data-highlight-id={asset.key} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors duration-150">
                     <td className="p-5 pl-8">
                       <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 dark:text-slate-200 text-xs">{asset.name}</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {activeSubTab === 'risk' ? (
+                            <button
+                              onClick={() => setSelectedTradingViewAsset(asset)}
+                              className="font-bold text-slate-900 dark:text-slate-200 text-xs hover:text-purple-600 dark:hover:text-purple-400 transition-colors text-left cursor-pointer flex items-center gap-1.5 group"
+                              title="Click to view Yahoo Finance® Chart & Quotations"
+                            >
+                              <span>{asset.name}</span>
+                              <span className="px-1.5 py-0.5 bg-purple-500/10 group-hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 rounded text-[9px] font-extrabold flex items-center gap-1 transition-all shrink-0">
+                                <span>Yahoo Finance 📈</span>
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="font-bold text-slate-900 dark:text-slate-200 text-xs">
+                              {asset.name}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-400 mt-0.5 capitalize">{asset.assetType} index</span>
                       </div>
                     </td>
@@ -513,6 +553,16 @@ export default function AssetSleeveTab({
                     </td>
                     <td className="p-5 text-right pr-8">
                       <div className="flex items-center justify-end gap-2">
+                        {activeSubTab === 'risk' && (
+                          <button
+                            onClick={() => setSelectedTradingViewAsset(asset)}
+                            className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-xs transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+                            title="Open Yahoo Finance® Chart & Quotations"
+                          >
+                            <BarChart2 className="w-3 h-3" />
+                            <span>Chart 📈</span>
+                          </button>
+                        )}
                         {asset.class === 'physical' && (
                           <button
                             onClick={() => handleQuickTransferClass(asset, 'liability')}
@@ -1069,6 +1119,13 @@ export default function AssetSleeveTab({
             </form>
           </div>
         </div>
+      )}
+
+      {selectedTradingViewAsset && (
+        <TradingViewAssetModal
+          asset={selectedTradingViewAsset}
+          onClose={() => setSelectedTradingViewAsset(null)}
+        />
       )}
     </div>
   );

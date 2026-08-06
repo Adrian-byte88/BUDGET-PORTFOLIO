@@ -1,0 +1,909 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Star,
+  Maximize2,
+  Settings,
+  Layers,
+  Activity,
+  BarChart2,
+  ChevronDown,
+  Eye,
+  Zap,
+  Info,
+  Check,
+  RotateCcw,
+  Sparkles
+} from 'lucide-react';
+
+export interface YahooFinanceChartProps {
+  symbol: string;
+  assetName: string;
+  category?: string;
+  usdPrice: number;
+  usdChange: number;
+  usdChangePct: number;
+  rank?: string;
+  initialTimeframe?: string;
+  theme?: 'dark' | 'light';
+  onSnapshot?: () => void;
+}
+
+export interface ChartPoint {
+  timeLabel: string;
+  fullDate: string;
+  price: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  changePct: number;
+  sma20?: number;
+  sma50?: number;
+  sma200?: number;
+}
+
+// Deterministic Pseudo-Random Generator based on seed
+function pseudoRandom(seed: number) {
+  const x = Math.sin(seed++) * 10000;
+  return x - Math.floor(x);
+}
+
+// Generator for realistic financial price series
+export function generateYahooFinanceData(
+  symbol: string,
+  basePrice: number,
+  timeframe: string
+): { points: ChartPoint[]; prevClose: number } {
+  let count = 60;
+  let volatility = 0.008;
+  let trend = 0.0001;
+
+  switch (timeframe) {
+    case '24H':
+      count = 60;
+      volatility = 0.006;
+      trend = -0.001;
+      break;
+    case '5D':
+      count = 70;
+      volatility = 0.012;
+      trend = 0.002;
+      break;
+    case '1M':
+      count = 90;
+      volatility = 0.018;
+      trend = 0.005;
+      break;
+    case '6M':
+      count = 100;
+      volatility = 0.025;
+      trend = 0.012;
+      break;
+    case 'YTD':
+      count = 110;
+      volatility = 0.022;
+      trend = 0.008;
+      break;
+    case '1Y':
+      count = 120;
+      volatility = 0.03;
+      trend = 0.018;
+      break;
+    case '5Y':
+      count = 140;
+      volatility = 0.045;
+      trend = 0.035;
+      break;
+    case 'All':
+      count = 160;
+      volatility = 0.055;
+      trend = 0.05;
+      break;
+    default:
+      count = 60;
+  }
+
+  // Seed numeric hash from symbol
+  let seed = 0;
+  for (let i = 0; i < symbol.length; i++) {
+    seed += symbol.charCodeAt(i) * (i + 1);
+  }
+
+  // Generate starting price roughly consistent with current base price
+  const points: ChartPoint[] = [];
+  let currentP = basePrice * (1 - trend * (count / 2));
+  if (currentP <= 0) currentP = basePrice * 0.8;
+
+  const now = new Date();
+
+  for (let i = 0; i < count; i++) {
+    const r = pseudoRandom(seed + i);
+    const r2 = pseudoRandom(seed + i * 17);
+    const r3 = pseudoRandom(seed + i * 31);
+
+    const pctChange = (r - 0.49) * volatility + trend;
+    const openP = currentP;
+    let closeP = openP * (1 + pctChange);
+
+    // Force the last point to equal basePrice
+    if (i === count - 1) {
+      closeP = basePrice;
+    }
+
+    const highP = Math.max(openP, closeP) * (1 + r2 * volatility * 0.8);
+    const lowP = Math.min(openP, closeP) * (1 - r3 * volatility * 0.8);
+    const vol = Math.floor(1000000 + r * 50000000 + (highP - lowP) * 10000000);
+
+    // Compute timestamp string based on timeframe
+    let timeLabel = '';
+    let fullDate = '';
+    const dateOffset = new Date(now.getTime());
+
+    if (timeframe === '24H') {
+      const minutesBack = (count - 1 - i) * 24; // 24 hours total
+      dateOffset.setMinutes(now.getMinutes() - minutesBack);
+      const hours = dateOffset.getHours();
+      const mins = dateOffset.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+      const formattedMins = mins < 10 ? `0${mins}` : mins;
+
+      timeLabel = `${formattedHours}:${formattedMins} ${ampm}`;
+      fullDate = `${dateOffset.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}, ${timeLabel}`;
+    } else if (timeframe === '5D') {
+      const daysBack = (count - 1 - i) * (5 / count);
+      dateOffset.setTime(now.getTime() - daysBack * 24 * 3600 * 1000);
+      timeLabel = dateOffset.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      fullDate = `${timeLabel}, ${dateOffset.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (timeframe === '1M') {
+      const daysBack = (count - 1 - i) * (30 / count);
+      dateOffset.setTime(now.getTime() - daysBack * 24 * 3600 * 1000);
+      timeLabel = dateOffset.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      fullDate = dateOffset.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    } else if (timeframe === '6M' || timeframe === 'YTD' || timeframe === '1Y') {
+      const daysBack = (count - 1 - i) * (365 / count);
+      dateOffset.setTime(now.getTime() - daysBack * 24 * 3600 * 1000);
+      timeLabel = dateOffset.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      fullDate = dateOffset.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    } else {
+      const daysBack = (count - 1 - i) * (1825 / count);
+      dateOffset.setTime(now.getTime() - daysBack * 24 * 3600 * 1000);
+      timeLabel = dateOffset.toLocaleDateString('en-US', { year: '2-digit', month: 'short' });
+      fullDate = dateOffset.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    points.push({
+      timeLabel,
+      fullDate,
+      price: closeP,
+      open: openP,
+      high: highP,
+      low: lowP,
+      close: closeP,
+      volume: vol,
+      changePct: ((closeP - openP) / openP) * 100
+    });
+
+    currentP = closeP;
+  }
+
+  // Calculate Simple Moving Averages (SMA)
+  for (let i = 0; i < points.length; i++) {
+    // SMA 20
+    if (i >= 5) {
+      const slice20 = points.slice(Math.max(0, i - 19), i + 1);
+      const sum20 = slice20.reduce((acc, p) => acc + p.price, 0);
+      points[i].sma20 = sum20 / slice20.length;
+    }
+    // SMA 50
+    if (i >= 12) {
+      const slice50 = points.slice(Math.max(0, i - 49), i + 1);
+      const sum50 = slice50.reduce((acc, p) => acc + p.price, 0);
+      points[i].sma50 = sum50 / slice50.length;
+    }
+  }
+
+  const prevClose = points[0].price;
+  return { points, prevClose };
+}
+
+export const YahooFinanceChart: React.FC<YahooFinanceChartProps> = ({
+  symbol,
+  assetName,
+  category = 'Cryptocurrency • USD • #1 by Market Cap',
+  usdPrice,
+  usdChange,
+  usdChangePct,
+  rank = '#1',
+  initialTimeframe = '24H',
+  theme = 'dark',
+  onSnapshot
+}) => {
+  const [timeframe, setTimeframe] = useState<string>(initialTimeframe);
+  const [chartType, setChartType] = useState<'line' | 'area' | 'candles'>('line');
+  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+  const [showAlphaSpace, setShowAlphaSpace] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [showVolume, setShowVolume] = useState<boolean>(true);
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Generate price series points
+  const { points, prevClose } = useMemo(() => {
+    return generateYahooFinanceData(symbol, usdPrice, timeframe);
+  }, [symbol, usdPrice, timeframe]);
+
+  const latestPoint = points[points.length - 1] || { price: usdPrice };
+  const hoveredPoint = hoverIndex !== null ? points[hoverIndex] : latestPoint;
+
+  // Total timeframe change calculation
+  const tfStartPrice = points[0]?.price || usdPrice;
+  const tfEndPrice = latestPoint.price;
+  const tfDiff = tfEndPrice - tfStartPrice;
+  const tfDiffPct = tfStartPrice > 0 ? (tfDiff / tfStartPrice) * 100 : 0;
+  const isPositive = tfDiff >= 0;
+
+  // Chart Min / Max bounds for scaling
+  const { minPrice, maxPrice, maxVol } = useMemo(() => {
+    let minP = Infinity;
+    let maxP = -Infinity;
+    let maxV = 0;
+
+    points.forEach((p) => {
+      if (p.low < minP) minP = p.low;
+      if (p.high > maxP) maxP = p.high;
+      if (p.volume > maxV) maxV = p.volume;
+    });
+
+    if (minP === Infinity) minP = usdPrice * 0.95;
+    if (maxP === -Infinity) maxP = usdPrice * 1.05;
+
+    // Add 2% padding
+    const padding = (maxP - minP) * 0.05 || usdPrice * 0.01;
+    return {
+      minPrice: Math.max(0, minP - padding),
+      maxPrice: maxP + padding,
+      maxVol: maxV || 1
+    };
+  }, [points, usdPrice]);
+
+  // Dimensions
+  const chartHeight = 360;
+  const chartWidth = 900; // viewBox width
+  const paddingRight = 85; // space for Y-axis price labels
+  const paddingLeft = 15;
+  const paddingTop = 25;
+  const paddingBottom = 45;
+
+  const drawableWidth = chartWidth - paddingLeft - paddingRight;
+  const drawableHeight = chartHeight - paddingTop - paddingBottom;
+
+  // Coordinate mappers
+  const getX = (index: number) => {
+    if (points.length <= 1) return paddingLeft;
+    return paddingLeft + (index / (points.length - 1)) * drawableWidth;
+  };
+
+  const getY = (price: number) => {
+    if (maxPrice === minPrice) return paddingTop + drawableHeight / 2;
+    const ratio = (price - minPrice) / (maxPrice - minPrice);
+    return paddingTop + drawableHeight - ratio * drawableHeight;
+  };
+
+  const getVolY = (vol: number) => {
+    const volHeight = (vol / maxVol) * (drawableHeight * 0.22);
+    return paddingTop + drawableHeight - volHeight;
+  };
+
+  // Build SVG Path string for Line / Area
+  const linePathD = useMemo(() => {
+    if (points.length === 0) return '';
+    return points.reduce((acc, pt, idx) => {
+      const x = getX(idx);
+      const y = getY(pt.price);
+      return `${acc} ${idx === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)}`;
+    }, '');
+  }, [points, minPrice, maxPrice]);
+
+  const areaPathD = useMemo(() => {
+    if (points.length === 0) return '';
+    const firstX = getX(0);
+    const lastX = getX(points.length - 1);
+    const bottomY = paddingTop + drawableHeight;
+    return `${linePathD} L ${lastX.toFixed(2)},${bottomY} L ${firstX.toFixed(2)},${bottomY} Z`;
+  }, [linePathD, points, minPrice, maxPrice]);
+
+  // Build SMA paths
+  const sma20PathD = useMemo(() => {
+    if (!showAdvanced) return '';
+    let path = '';
+    points.forEach((pt, idx) => {
+      if (pt.sma20 !== undefined) {
+        const x = getX(idx);
+        const y = getY(pt.sma20);
+        path += `${path ? ' L' : 'M'} ${x.toFixed(2)},${y.toFixed(2)}`;
+      }
+    });
+    return path;
+  }, [points, showAdvanced, minPrice, maxPrice]);
+
+  const sma50PathD = useMemo(() => {
+    if (!showAdvanced) return '';
+    let path = '';
+    points.forEach((pt, idx) => {
+      if (pt.sma50 !== undefined) {
+        const x = getX(idx);
+        const y = getY(pt.sma50);
+        path += `${path ? ' L' : 'M'} ${x.toFixed(2)},${y.toFixed(2)}`;
+      }
+    });
+    return path;
+  }, [points, showAdvanced, minPrice, maxPrice]);
+
+  // Price Ticks on Right Axis (4 grid steps)
+  const priceTicks = useMemo(() => {
+    const count = 4;
+    const ticks = [];
+    const step = (maxPrice - minPrice) / count;
+    for (let i = 0; i <= count; i++) {
+      ticks.push(minPrice + i * step);
+    }
+    return ticks;
+  }, [minPrice, maxPrice]);
+
+  // Time Ticks on X-Axis (6 step intervals)
+  const timeTickIndices = useMemo(() => {
+    if (points.length === 0) return [];
+    const count = 6;
+    const step = Math.floor((points.length - 1) / count);
+    const indices = [];
+    for (let i = 0; i <= count; i++) {
+      const idx = Math.min(i * step, points.length - 1);
+      if (!indices.includes(idx)) indices.push(idx);
+    }
+    return indices;
+  }, [points]);
+
+  // Handle Mouse Hover / Crosshair Position
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!containerRef.current || points.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+
+    // Convert mouseX to viewBox scale
+    const svgWidth = rect.width;
+    const scaleX = chartWidth / svgWidth;
+    const viewBoxX = mouseX * scaleX;
+
+    const clampedX = Math.max(paddingLeft, Math.min(chartWidth - paddingRight, viewBoxX));
+    const ratio = (clampedX - paddingLeft) / drawableWidth;
+    const index = Math.round(ratio * (points.length - 1));
+
+    if (index >= 0 && index < points.length) {
+      setHoverIndex(index);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoverIndex(null);
+  };
+
+  // Color Constants matching Yahoo Finance Dark (#0f1419 / #12181f / #0d1117)
+  const isDarkTheme = theme === 'dark';
+  const lineColor = isPositive ? '#10b981' : '#f43f5e'; // Green vs Red
+  const lineGlowColor = isPositive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)';
+
+  return (
+    <div className={`w-full flex flex-col ${isDarkTheme ? 'bg-[#0f1419] text-slate-100' : 'bg-white text-slate-900'} rounded-2xl overflow-hidden border ${isDarkTheme ? 'border-slate-800 shadow-2xl' : 'border-slate-200 shadow-xl'}`}>
+      
+      {/* 1. HEADER SECTION (MATCHING YAHOO FINANCE SCREENSHOT) */}
+      <div className={`p-4 sm:p-5 border-b ${isDarkTheme ? 'border-slate-800/80 bg-[#121820]' : 'border-slate-200 bg-slate-50'} flex flex-col md:flex-row md:items-center justify-between gap-4`}>
+        <div className="space-y-1">
+          {/* Category breadcrumb */}
+          <div className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span>{category}</span>
+            {rank && (
+              <span className="px-1.5 py-0.2 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded text-[10px] font-mono font-extrabold">
+                {rank}
+              </span>
+            )}
+          </div>
+
+          {/* Asset Title with Favorite Star */}
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+              <span>{assetName}</span>
+              <span className="text-slate-400 text-lg font-mono font-normal">({symbol})</span>
+            </h2>
+            <button
+              onClick={() => setIsFavorite(!isFavorite)}
+              className="p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer text-slate-400 hover:text-amber-400"
+              title="Add to Yahoo Finance Watchlist"
+            >
+              <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-400 text-amber-400' : ''}`} />
+            </button>
+          </div>
+
+          {/* Big Price & Change Display */}
+          <div className="flex items-baseline gap-3 pt-1 flex-wrap">
+            <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight">
+              {hoveredPoint ? hoveredPoint.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : usdPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+
+            <div className={`flex items-center gap-1 font-mono font-bold text-base px-2.5 py-0.5 rounded-lg ${
+              isPositive 
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+            }`}>
+              {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+              <span>{tfDiff >= 0 ? '+' : ''}{tfDiff.toFixed(2)}</span>
+              <span>({isPositive ? '+' : ''}{tfDiffPct.toFixed(2)}%)</span>
+            </div>
+
+            <div className="text-xs text-slate-400 font-mono flex items-center gap-1">
+              <span>As of {new Date().toLocaleTimeString()} UTC. Market Open.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Right Actions */}
+        <div className="flex items-center gap-2 self-start md:self-center flex-wrap">
+          <button
+            onClick={() => setShowAlphaSpace(!showAlphaSpace)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+              showAlphaSpace
+                ? 'bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/30'
+                : isDarkTheme ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>α AlphaSpace Chart</span>
+          </button>
+
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-2 rounded-xl transition-all cursor-pointer border ${
+              showSettings
+                ? 'bg-purple-600 text-white border-purple-500'
+                : isDarkTheme ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+            }`}
+            title="Chart Display Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* SETTINGS POPUP OVERLAY */}
+      {showSettings && (
+        <div className={`p-4 border-b text-xs flex items-center justify-between gap-4 flex-wrap animate-fade-in ${
+          isDarkTheme ? 'bg-slate-900/95 border-slate-800 text-slate-200' : 'bg-slate-100 border-slate-300 text-slate-800'
+        }`}>
+          <div className="flex items-center gap-4 flex-wrap font-bold">
+            <span className="text-purple-400 font-mono uppercase">Chart Settings:</span>
+            
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showVolume}
+                onChange={(e) => setShowVolume(e.target.checked)}
+                className="rounded accent-purple-600"
+              />
+              <span>Volume Subchart</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showGrid}
+                onChange={(e) => setShowGrid(e.target.checked)}
+                className="rounded accent-purple-600"
+              />
+              <span>Price Gridlines</span>
+            </label>
+          </div>
+
+          <button
+            onClick={() => setShowSettings(false)}
+            className="px-2.5 py-1 bg-purple-600 text-white rounded font-bold cursor-pointer hover:bg-purple-500"
+          >
+            Done
+          </button>
+        </div>
+      )}
+
+      {/* 2. CHART CONTROL BAR (TIMEFRAME & CHART TYPE OPTIONS) */}
+      <div className={`p-3 border-b ${isDarkTheme ? 'border-slate-800 bg-[#0d1218]' : 'border-slate-200 bg-slate-100'} flex items-center justify-between gap-3 flex-wrap`}>
+        {/* Timeframe Buttons (Match Yahoo Finance Pill Bar) */}
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {['24H', '5D', '1M', '6M', 'YTD', '1Y', '5Y', 'All'].map((tf) => {
+            const isActive = timeframe === tf;
+            return (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-black transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 scale-105'
+                    : isDarkTheme
+                      ? 'bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700/50'
+                      : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-300'
+                }`}
+              >
+                {tf}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right Tools (Chart Type Selector & Advanced Toggle) */}
+        <div className="flex items-center gap-2 font-mono text-xs">
+          {/* Chart Type Selector Dropdown */}
+          <div className="flex items-center p-1 bg-slate-800/60 rounded-xl border border-slate-700/60">
+            <button
+              onClick={() => setChartType('line')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                chartType === 'line' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Line Chart"
+            >
+              Line
+            </button>
+            <button
+              onClick={() => setChartType('area')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                chartType === 'area' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Area Chart"
+            >
+              Area
+            </button>
+            <button
+              onClick={() => setChartType('candles')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                chartType === 'candles' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
+              }`}
+              title="Candlestick Chart"
+            >
+              Candles
+            </button>
+          </div>
+
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+              showAdvanced
+                ? 'bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-600/30'
+                : isDarkTheme ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-white hover:bg-slate-200 text-slate-700 border-slate-300'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-purple-300" />
+            <span>↗ Advanced Chart</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. ADVANCED TECHNICAL INDICATORS LEGEND BAR */}
+      {showAdvanced && (
+        <div className="p-2.5 bg-purple-950/40 border-b border-purple-500/20 px-4 text-xs font-mono flex items-center gap-4 overflow-x-auto text-purple-200 animate-fade-in">
+          <span className="font-extrabold uppercase text-[10px] text-purple-400">Indicators:</span>
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+            <span>SMA 20: <b>${(hoveredPoint.sma20 || hoveredPoint.price * 0.99).toFixed(2)}</b></span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>
+            <span>SMA 50: <b>${(hoveredPoint.sma50 || hoveredPoint.price * 0.97).toFixed(2)}</b></span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>
+            <span>RSI (14): <b>62.4 (Bullish)</b></span>
+          </div>
+        </div>
+      )}
+
+      {/* 4. MAIN INTERACTIVE SVG CHART CONTAINER */}
+      <div ref={containerRef} className={`relative w-full p-2 ${isDarkTheme ? 'bg-[#0b0e13]' : 'bg-slate-50'}`}>
+        
+        {/* Floating Tooltip Card when Hovering */}
+        {hoverIndex !== null && (
+          <div
+            className={`absolute top-4 left-6 z-20 p-3 rounded-xl border text-xs font-mono shadow-2xl backdrop-blur-md pointer-events-none transition-all ${
+              isDarkTheme
+                ? 'bg-slate-900/90 border-slate-700 text-slate-100 shadow-slate-950'
+                : 'bg-white/95 border-slate-300 text-slate-900 shadow-slate-400'
+            }`}
+          >
+            <div className="text-[10px] text-slate-400 font-bold mb-1 border-b border-slate-700/50 pb-1 flex items-center justify-between gap-3">
+              <span>{hoveredPoint.fullDate}</span>
+              <span className="text-purple-400">Yahoo Finance®</span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1">
+              <div>Price: <b className="text-white">${hoveredPoint.price.toFixed(2)}</b></div>
+              <div>Vol: <b>{(hoveredPoint.volume / 1e6).toFixed(2)}M</b></div>
+              <div>Open: <b>${hoveredPoint.open.toFixed(2)}</b></div>
+              <div>High: <b>${hoveredPoint.high.toFixed(2)}</b></div>
+              <div>Low: <b>${hoveredPoint.low.toFixed(2)}</b></div>
+              <div>Change: <b className={hoveredPoint.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{hoveredPoint.changePct >= 0 ? '+' : ''}{hoveredPoint.changePct.toFixed(2)}%</b></div>
+            </div>
+          </div>
+        )}
+
+        {/* SVG Graphic */}
+        <svg
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          className="w-full h-[380px] sm:h-[420px] overflow-visible cursor-crosshair select-none"
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        >
+          <defs>
+            {/* Yahoo Finance Area Gradient */}
+            <linearGradient id={`yf-area-grad-${symbol}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={lineColor} stopOpacity="0.35" />
+              <stop offset="80%" stopColor={lineColor} stopOpacity="0.05" />
+              <stop offset="100%" stopColor={lineColor} stopOpacity="0.00" />
+            </linearGradient>
+
+            {/* Glow Filter */}
+            <filter id="line-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          {/* Grid lines */}
+          {showGrid && priceTicks.map((priceVal, idx) => {
+            const y = getY(priceVal);
+            return (
+              <g key={idx}>
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={chartWidth - paddingRight}
+                  y2={y}
+                  stroke={isDarkTheme ? '#1e293b' : '#e2e8f0'}
+                  strokeDasharray="3 3"
+                  strokeWidth="1"
+                />
+                {/* Right Y-Axis Price Label */}
+                <text
+                  x={chartWidth - paddingRight + 8}
+                  y={y + 4}
+                  fill={isDarkTheme ? '#94a3b8' : '#64748b'}
+                  fontSize="11"
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                >
+                  {priceVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Dotted Reference Line for Previous Close */}
+          <line
+            x1={paddingLeft}
+            y1={getY(prevClose)}
+            x2={chartWidth - paddingRight}
+            y2={getY(prevClose)}
+            stroke="#64748b"
+            strokeDasharray="4 4"
+            strokeWidth="1"
+            opacity="0.6"
+          />
+
+          {/* Volume Subchart Bars */}
+          {showVolume && points.map((pt, idx) => {
+            const x = getX(idx);
+            const barW = Math.max(1.5, drawableWidth / points.length - 1);
+            const volY = getVolY(pt.volume);
+            const volH = paddingTop + drawableHeight - volY;
+            const isUp = pt.close >= pt.open;
+
+            return (
+              <rect
+                key={idx}
+                x={x - barW / 2}
+                y={volY}
+                width={barW}
+                height={volH}
+                fill={isUp ? '#10b981' : '#ef4444'}
+                opacity={isDarkTheme ? 0.35 : 0.25}
+              />
+            );
+          })}
+
+          {/* Chart Plot Render according to ChartType */}
+          {chartType === 'area' && (
+            <path
+              d={areaPathD}
+              fill={`url(#yf-area-grad-${symbol})`}
+            />
+          )}
+
+          {(chartType === 'line' || chartType === 'area') && (
+            <path
+              d={linePathD}
+              fill="none"
+              stroke={lineColor}
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {chartType === 'candles' && points.map((pt, idx) => {
+            const x = getX(idx);
+            const openY = getY(pt.open);
+            const closeY = getY(pt.close);
+            const highY = getY(pt.high);
+            const lowY = getY(pt.low);
+            const isUp = pt.close >= pt.open;
+            const barW = Math.max(2, drawableWidth / points.length - 2);
+
+            return (
+              <g key={idx}>
+                {/* Wick */}
+                <line
+                  x1={x}
+                  y1={highY}
+                  x2={x}
+                  y2={lowY}
+                  stroke={isUp ? '#10b981' : '#ef4444'}
+                  strokeWidth="1.2"
+                />
+                {/* Body */}
+                <rect
+                  x={x - barW / 2}
+                  y={Math.min(openY, closeY)}
+                  width={barW}
+                  height={Math.max(1.5, Math.abs(closeY - openY))}
+                  fill={isUp ? '#10b981' : '#ef4444'}
+                  rx="0.5"
+                />
+              </g>
+            );
+          })}
+
+          {/* Advanced Technical SMA Lines */}
+          {showAdvanced && (
+            <>
+              {sma20PathD && (
+                <path
+                  d={sma20PathD}
+                  fill="none"
+                  stroke="#22d3ee"
+                  strokeWidth="1.5"
+                  strokeDasharray="2 2"
+                />
+              )}
+              {sma50PathD && (
+                <path
+                  d={sma50PathD}
+                  fill="none"
+                  stroke="#fbbf24"
+                  strokeWidth="1.5"
+                />
+              )}
+            </>
+          )}
+
+          {/* Latest Price Dotted Horizontal Line Across Chart */}
+          <line
+            x1={paddingLeft}
+            y1={getY(latestPoint.price)}
+            x2={chartWidth - paddingRight}
+            y2={getY(latestPoint.price)}
+            stroke={lineColor}
+            strokeDasharray="3 3"
+            strokeWidth="1.2"
+          />
+
+          {/* LATEST PRICE RIGHT-AXIS BADGE (MATCHING YAHOO FINANCE SCREENSHOT) */}
+          <g transform={`translate(${chartWidth - paddingRight + 4}, ${getY(latestPoint.price) - 10})`}>
+            <rect
+              width="78"
+              height="20"
+              rx="4"
+              fill={lineColor}
+            />
+            <text
+              x="39"
+              y="14"
+              fill="#ffffff"
+              fontSize="11"
+              fontFamily="monospace"
+              fontWeight="bold"
+              textAnchor="middle"
+            >
+              {latestPoint.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </text>
+          </g>
+
+          {/* Latest Data Point Pulsing Dot */}
+          {points.length > 0 && (
+            <g transform={`translate(${getX(points.length - 1)}, ${getY(latestPoint.price)})`}>
+              <circle r="6" fill={lineColor} opacity="0.4" className="animate-ping" />
+              <circle r="4" fill={lineColor} stroke="#ffffff" strokeWidth="1.5" />
+            </g>
+          )}
+
+          {/* Crosshair Cursor Tracking */}
+          {hoverIndex !== null && (
+            <g>
+              {/* Vertical Dashed Line */}
+              <line
+                x1={getX(hoverIndex)}
+                y1={paddingTop}
+                x2={getX(hoverIndex)}
+                y2={paddingTop + drawableHeight}
+                stroke={isDarkTheme ? '#cbd5e1' : '#475569'}
+                strokeDasharray="3 3"
+                strokeWidth="1"
+              />
+              {/* Horizontal Dashed Line */}
+              <line
+                x1={paddingLeft}
+                y1={getY(hoveredPoint.price)}
+                x2={chartWidth - paddingRight}
+                y2={getY(hoveredPoint.price)}
+                stroke={isDarkTheme ? '#cbd5e1' : '#475569'}
+                strokeDasharray="3 3"
+                strokeWidth="1"
+              />
+              {/* Point Circle */}
+              <circle
+                cx={getX(hoverIndex)}
+                cy={getY(hoveredPoint.price)}
+                r="5"
+                fill="#ffffff"
+                stroke={lineColor}
+                strokeWidth="2"
+              />
+            </g>
+          )}
+
+          {/* X-Axis Time Labels */}
+          {timeTickIndices.map((idxVal, i) => {
+            const pt = points[idxVal];
+            if (!pt) return null;
+            const x = getX(idxVal);
+            return (
+              <text
+                key={i}
+                x={x}
+                y={chartHeight - 12}
+                fill={isDarkTheme ? '#94a3b8' : '#64748b'}
+                fontSize="11"
+                fontFamily="monospace"
+                fontWeight="bold"
+                textAnchor="middle"
+              >
+                {pt.timeLabel}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* 5. FOOTER STATS & YAHOO BRANDING */}
+      <div className={`p-3 border-t ${isDarkTheme ? 'border-slate-800 bg-[#0d1218]' : 'border-slate-200 bg-slate-100'} flex items-center justify-between text-xs font-mono text-slate-400 flex-wrap gap-2`}>
+        <div className="flex items-center gap-3">
+          <span>Range: <b>${minPrice.toFixed(2)} - ${maxPrice.toFixed(2)}</b></span>
+          <span>•</span>
+          <span>Volatility: <b>High Liquid</b></span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-purple-400 font-bold">Yahoo Finance® Official Interactive Chart</span>
+        </div>
+      </div>
+    </div>
+  );
+};

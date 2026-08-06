@@ -116,11 +116,12 @@ export default function Navbar({
             {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Important News Alerts Dropdown */}
+          {/* Personal Trigger Alerts Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowAlerts(!showAlerts)}
               className="relative p-2 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl border border-slate-200 dark:border-white/5 transition-all duration-300"
+              title="Personal Price Alerts"
             >
               <Bell className="w-4 h-4" />
               {alerts.length > 0 && (
@@ -133,13 +134,13 @@ export default function Navbar({
             {showAlerts && (
               <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden z-50 animate-fade-in">
                 <div className="p-4 bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-700 dark:text-white uppercase tracking-widest">Important News Alerts</h3>
+                  <h3 className="text-xs font-bold text-slate-700 dark:text-white uppercase tracking-widest">Personal Price Alerts</h3>
                   {alerts.length > 0 && (
                     <button
                       onClick={onClearAlerts}
-                      className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                      className="text-[10px] text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
                     >
-                      Dismiss All
+                      Clear All
                     </button>
                   )}
                 </div>
