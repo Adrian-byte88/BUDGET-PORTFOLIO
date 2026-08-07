@@ -78,7 +78,7 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-18 flex items-center justify-between">
+      <div className="w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-10 h-14 sm:h-18 flex items-center justify-between">
         <div className="flex items-center space-x-2.5 sm:space-x-3.5">
           <img src={logoImg} alt="Logo" className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg shadow-md" />
           <div>

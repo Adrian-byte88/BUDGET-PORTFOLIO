@@ -8,9 +8,9 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Compact Root Typography & Layout Scaling for Mobile Screen Visibility */
+/* Scaled Typography & Layout Scaling for Desktop & Mobile Screens */
 html {
-  font-size: 13.5px;
+  font-size: 15px;
 }
 
 @media (max-width: 640px) {

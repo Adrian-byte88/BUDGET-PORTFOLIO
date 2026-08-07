@@ -1535,7 +1535,7 @@ export default function App() {
       />
 
       {/* Tab Navigations */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="w-full max-w-[1750px] mx-auto px-3 sm:px-6 lg:px-10 py-4 sm:py-8">
         
         {/* Core Sub navigation rails */}
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2 mb-4 sm:mb-8 overflow-x-auto gap-2 sm:gap-4 hide-scrollbar">
