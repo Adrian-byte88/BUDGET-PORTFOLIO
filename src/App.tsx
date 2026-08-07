@@ -1785,7 +1785,7 @@ export default function App() {
       {/* Clean elegant bottom footer with Philippine live clock */}
       <footer className="border-t border-slate-200/50 dark:border-white/5 py-8 mt-16 text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest flex flex-col items-center justify-center gap-3">
         <PhilippineClock />
-        <span>© 2026 Wealth Vault Inc. Fully Audited Cryptographic Protection.</span>
+        <span>© 2026 Budget Portfolio Inc. Fully Audited Cryptographic Protection.</span>
       </footer>
 
       {/* --- GEMINI AI CHAT BOX FLOATING SYSTEM --- */}
@@ -1797,7 +1797,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-white">Wealth Vault AI</h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-white">Budget Portfolio AI</h4>
                   <span className="text-[9px] text-slate-300 block">Powered by Gemini 3.5 Flash</span>
                 </div>
               </div>

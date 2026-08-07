@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sun, Moon, Bell, Shield, LogOut, User, Menu, X, Wifi, Settings, Crown, Lock } from 'lucide-react';
 import { MarketAlert, AssetPosition, ExpenseEntry, FamilyGoal, BudgetLimit } from '../types';
 import SearchEngine from './SearchEngine';
-import logoImg from '../assets/images/budget_portfolio_logo_1784635990294.jpg';
+import logoImg from '../assets/images/app_logo_1786099253668.jpg';
 import { formatTimeAgo } from '../lib/formatters';
 
 interface NavbarProps {

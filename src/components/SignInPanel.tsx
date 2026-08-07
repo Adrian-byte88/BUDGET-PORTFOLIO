@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { Shield, AlertCircle } from 'lucide-react';
-import logoImg from '../assets/images/budget_portfolio_logo_1784635990294.jpg';
+import logoImg from '../assets/images/app_logo_1786099253668.jpg';
 
 interface SignInPanelProps {
   onSignIn: () => void;
