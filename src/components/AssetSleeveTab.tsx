@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AssetPosition, TradeEntry, MarketAlert } from '../types';
-import { Sliders, Plus, Play, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, TrendingDown, TrendingUp, Info, Bell, Trash2, Calendar, Percent, BarChart2 } from 'lucide-react';
+import { Sliders, Plus, Play, RefreshCw, Sparkles, AlertTriangle, ShieldCheck, TrendingDown, TrendingUp, Info, Bell, Trash2, Calendar, Percent, BarChart2, ArrowRightLeft, Coins, Banknote, Wallet } from 'lucide-react';
 import SmartCalculatorInput from './SmartCalculatorInput';
 import { formatTimeAgo, getAssetValuation } from '../lib/formatters';
 import { parseFormattedNumber } from '../utils/mathParser';
@@ -102,6 +102,374 @@ export default function AssetSleeveTab({
       assetClass: targetClass,
       assetType: targetType,
     });
+  };
+
+  // Transfer Across Assets state
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferFromKey, setTransferFromKey] = useState<string>('');
+  const [transferToKey, setTransferToKey] = useState<string>('');
+  const [transferAmount, setTransferAmount] = useState<string>('');
+  const [transferNotes, setTransferNotes] = useState<string>('');
+  const [transferError, setTransferError] = useState<string>('');
+
+  const handleExecuteAssetTransfer = (e: React.FormEvent) => {
+    e.preventDefault();
+    setTransferError('');
+
+    if (!transferFromKey || !transferToKey) {
+      setTransferError('Please select both a source asset and a destination asset.');
+      return;
+    }
+
+    if (transferFromKey === transferToKey) {
+      setTransferError('Source and destination assets must be different.');
+      return;
+    }
+
+    const fromAsset = assets.find((a) => a.key === transferFromKey);
+    const toAsset = assets.find((a) => a.key === transferToKey);
+
+    if (!fromAsset || !toAsset) {
+      setTransferError('Selected asset could not be found.');
+      return;
+    }
+
+    const amountPHP = parseFormattedNumber(transferAmount);
+    if (isNaN(amountPHP) || amountPHP <= 0) {
+      setTransferError('Please enter a valid transfer amount greater than 0.');
+      return;
+    }
+
+    // Determine unit prices and asset categories
+    const isFromPhysical = fromAsset.class === 'physical' || fromAsset.assetType === 'property';
+    const isFromSafe = fromAsset.class === 'safe' || fromAsset.assetType === 'cash' || fromAsset.assetType === 'deposit' || fromAsset.assetType === 'hys';
+    const isFromLiability = fromAsset.class === 'liability' || fromAsset.assetType === 'liability';
+
+    let fromUnitPrice = fromAsset.currentPricePHP;
+    if (!isFromSafe && !isFromLiability && !isFromPhysical && (!fromUnitPrice || fromUnitPrice <= 0 || (fromUnitPrice === 1 && fromAsset.costBasisPHP > 10))) {
+      fromUnitPrice = fromAsset.units > 0 ? fromAsset.costBasisPHP / fromAsset.units : fromAsset.costBasisPHP;
+    }
+    if (isFromSafe || isFromLiability || isFromPhysical) fromUnitPrice = 1;
+
+    const isToPhysical = toAsset.class === 'physical' || toAsset.assetType === 'property';
+    const isToSafe = toAsset.class === 'safe' || toAsset.assetType === 'cash' || toAsset.assetType === 'deposit' || toAsset.assetType === 'hys';
+    const isToLiability = toAsset.class === 'liability' || toAsset.assetType === 'liability';
+
+    let toUnitPrice = toAsset.currentPricePHP;
+    if (!isToSafe && !isToLiability && !isToPhysical && (!toUnitPrice || toUnitPrice <= 0 || (toUnitPrice === 1 && toAsset.costBasisPHP > 10))) {
+      toUnitPrice = toAsset.units > 0 ? toAsset.costBasisPHP / toAsset.units : toAsset.costBasisPHP;
+    }
+    if (isToSafe || isToLiability || isToPhysical) toUnitPrice = 1;
+
+    // Deduct from Source
+    const newFromCost = Math.max(0, fromAsset.costBasisPHP - amountPHP);
+    let newFromUnits = fromAsset.units;
+    if (isFromPhysical) {
+      // Physical assets retain their unit count; principal cost basis is adjusted
+      newFromUnits = fromAsset.units;
+    } else if (isFromSafe || isFromLiability) {
+      newFromUnits = newFromCost;
+    } else {
+      const unitsDeducted = amountPHP / (fromUnitPrice || 1);
+      newFromUnits = Math.max(0, fromAsset.units - unitsDeducted);
+    }
+
+    // Add to Target
+    const newToCost = toAsset.costBasisPHP + amountPHP;
+    let newToUnits = toAsset.units;
+    if (isToPhysical) {
+      // Physical assets add directly to principal cost basis without changing unit count
+      newToUnits = toAsset.units;
+    } else if (isToSafe) {
+      // Safe Shield Protection Assets: add transfer amount directly to principal cost basis & cash balance
+      newToUnits = newToCost;
+    } else if (isToLiability) {
+      // Liabilities & Loans: add transfer amount directly to principal debt balance
+      newToUnits = newToCost;
+    } else {
+      const unitsAdded = amountPHP / (toUnitPrice || 1);
+      newToUnits = toAsset.units + unitsAdded;
+    }
+
+    // Update both holdings
+    onUpdateAssetHoldings(fromAsset.key, newFromUnits, newFromCost, {
+      startDate: fromAsset.startDate,
+      maturityDate: fromAsset.maturityDate,
+      yieldPercent: fromAsset.yieldPercent,
+      yieldFrequency: fromAsset.yieldFrequency,
+      withholdingTaxPercent: fromAsset.withholdingTaxPercent,
+      assetClass: fromAsset.class,
+      assetType: fromAsset.assetType,
+    });
+
+    onUpdateAssetHoldings(toAsset.key, newToUnits, newToCost, {
+      startDate: toAsset.startDate,
+      maturityDate: toAsset.maturityDate,
+      yieldPercent: toAsset.yieldPercent,
+      yieldFrequency: toAsset.yieldFrequency,
+      withholdingTaxPercent: toAsset.withholdingTaxPercent,
+      assetClass: toAsset.class,
+      assetType: toAsset.assetType,
+    });
+
+    // Reset and close
+    setShowTransferModal(false);
+    setTransferAmount('');
+    setTransferNotes('');
+  };
+
+  // Bi-Monthly Payday Income Deposit state (15th & 30th)
+  const [showPaydayModal, setShowPaydayModal] = useState(false);
+  const [paydayTargetKey, setPaydayTargetKey] = useState<string>('available_cash');
+  const [paydayAmount, setPaydayAmount] = useState<string>('');
+  const [paydayDate, setPaydayDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [paydayType, setPaydayType] = useState<'15th' | '30th' | 'bonus' | 'custom'>('15th');
+  const [paydayNotes, setPaydayNotes] = useState<string>('15th Payday Salary Deposit');
+  const [paydayError, setPaydayError] = useState<string>('');
+
+  // Scheduled Paydays state
+  const [scheduledPaydays, setScheduledPaydays] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('wealthvault_scheduled_paydays');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const getNextPaydayInfo = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const day = today.getDate();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Calculate 15th payday date
+    let p15Date: Date;
+    if (day <= 15) {
+      p15Date = new Date(year, month, 15);
+    } else {
+      p15Date = new Date(year, month + 1, 15);
+    }
+    const p15Str = p15Date.toISOString().split('T')[0];
+
+    // Calculate End of Month payday date
+    const lastDayThisMonth = new Date(year, month + 1, 0).getDate();
+    let pEndOfMonthDate: Date;
+    if (day <= lastDayThisMonth) {
+      pEndOfMonthDate = new Date(year, month, lastDayThisMonth);
+    } else {
+      const lastDayNextMonth = new Date(year, month + 2, 0).getDate();
+      pEndOfMonthDate = new Date(year, month + 1, lastDayNextMonth);
+    }
+    const p30Str = pEndOfMonthDate.toISOString().split('T')[0];
+
+    let paydayTitle = '15th Payday';
+    let paydayTypeLabel = '15th Income';
+    let badgeText = '15TH PAYDAY';
+    let targetPaydayDateStr = p15Str;
+    let diffDays = 0;
+    let daysText = '';
+
+    if (day < 15) {
+      diffDays = 15 - day;
+      paydayTitle = '15th Payday';
+      targetPaydayDateStr = p15Str;
+      paydayTypeLabel = '15th Income';
+      badgeText = '15TH PAYDAY';
+      daysText = diffDays === 1 ? 'in 1 day' : `in ${diffDays} days`;
+    } else if (day === 15) {
+      diffDays = 0;
+      paydayTitle = '15th Payday';
+      targetPaydayDateStr = p15Str;
+      paydayTypeLabel = '15th Income';
+      badgeText = '15TH PAYDAY TODAY';
+      daysText = 'Today!';
+    } else if (day < lastDayThisMonth) {
+      diffDays = lastDayThisMonth - day;
+      paydayTitle = 'End of Month Payday';
+      targetPaydayDateStr = p30Str;
+      paydayTypeLabel = 'End of Month Income';
+      badgeText = 'END OF MONTH PAYDAY';
+      daysText = diffDays === 1 ? 'in 1 day' : `in ${diffDays} days`;
+    } else if (day === lastDayThisMonth) {
+      diffDays = 0;
+      paydayTitle = 'End of Month Payday';
+      targetPaydayDateStr = p30Str;
+      paydayTypeLabel = 'End of Month Income';
+      badgeText = 'END OF MONTH TODAY';
+      daysText = 'Today!';
+    } else {
+      const diffTime = p15Date.getTime() - today.getTime();
+      diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      paydayTitle = '15th Payday';
+      targetPaydayDateStr = p15Str;
+      paydayTypeLabel = '15th Income';
+      badgeText = '15TH PAYDAY';
+      daysText = `in ${diffDays} days`;
+    }
+
+    return { paydayTitle, paydayTypeLabel, badgeText, diffDays, daysText, todayStr, p15Str, p30Str, targetPaydayDateStr };
+  };
+
+  const computeSchedulePresetInfo = (presetKey: string) => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const day = today.getDate();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // 15th
+    let p15Date = day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 15);
+    const p15Str = p15Date.toISOString().split('T')[0];
+
+    // End of Month
+    const lastDayThisMonth = new Date(year, month + 1, 0).getDate();
+    let pEndOfMonthDate = day <= lastDayThisMonth ? new Date(year, month, lastDayThisMonth) : new Date(year, month + 1, new Date(year, month + 2, 0).getDate());
+    const pEndOfMonthStr = pEndOfMonthDate.toISOString().split('T')[0];
+
+    // Every 15th & End of Month (Next upcoming 15th or End of Month)
+    const pdNext = getNextPaydayInfo();
+    const semimonthlyStr = pdNext.targetPaydayDateStr;
+
+    // Weekly (Every 7 days)
+    const weeklyDate = new Date(today);
+    weeklyDate.setDate(weeklyDate.getDate() + 7);
+    const weeklyStr = weeklyDate.toISOString().split('T')[0];
+
+    // Monthly (1st of Next Month)
+    const monthlyDate = new Date(year, month + 1, 1);
+    const monthlyStr = monthlyDate.toISOString().split('T')[0];
+
+    switch (presetKey) {
+      case 'semimonthly':
+      case '15th_30th':
+      case '15th_endofmonth':
+        return { dateStr: semimonthlyStr, defaultNote: 'Semi-Monthly Salary Deposit (Every 15th & End of Month)', label: 'Every 15th & End of Month' };
+      case '15th':
+        return { dateStr: p15Str, defaultNote: '15th Payday Salary Deposit', label: '15th Payday' };
+      case '30th':
+      case 'endofmonth':
+        return { dateStr: pEndOfMonthStr, defaultNote: 'End of Month Salary Deposit', label: 'End of Month Payday' };
+      case 'weekly':
+        return { dateStr: weeklyStr, defaultNote: 'Weekly Income Deposit', label: 'Weekly Income (Every 7 Days)' };
+      case 'monthly':
+        return { dateStr: monthlyStr, defaultNote: 'Monthly Salary Deposit', label: 'Monthly Salary (1st of Next Month)' };
+      case 'today':
+        return { dateStr: todayStr, defaultNote: 'Immediate Cash Deposit', label: 'Immediate Deposit (Today)' };
+      default:
+        return { dateStr: todayStr, defaultNote: 'Custom Cash Income Deposit', label: 'Custom Date' };
+    }
+  };
+
+  const depositToCashOrHys = (targetKey: string, amountPHP: number, notes: string) => {
+    let targetAsset = assets.find((a) => a.key === targetKey) || assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
+
+    if (!targetAsset) {
+      const newCashAsset: AssetPosition = {
+        key: 'available_cash',
+        name: 'Available Cash Reserve (15th/30th Income)',
+        class: 'safe',
+        assetType: 'cash',
+        platform: 'Primary Operating Bank',
+        units: amountPHP,
+        costBasisPHP: amountPHP,
+        currentPricePHP: 1,
+        yieldPercent: 0,
+        yieldFrequency: 'annual',
+        withholdingTaxPercent: 0,
+        change24h: 0.00
+      };
+      onAddAsset(newCashAsset);
+    } else {
+      const newCost = targetAsset.costBasisPHP + amountPHP;
+      const newUnits = newCost;
+
+      onUpdateAssetHoldings(targetAsset.key, newUnits, newCost, {
+        startDate: targetAsset.startDate,
+        maturityDate: targetAsset.maturityDate,
+        yieldPercent: targetAsset.yieldPercent,
+        yieldFrequency: targetAsset.yieldFrequency,
+        withholdingTaxPercent: targetAsset.withholdingTaxPercent,
+        assetClass: targetAsset.class,
+        assetType: targetAsset.assetType,
+      });
+    }
+
+    if (onAddTrade) {
+      onAddTrade({
+        assetKey: targetAsset ? targetAsset.key : 'available_cash',
+        assetName: targetAsset ? targetAsset.name : 'Available Cash Reserve',
+        action: 'BUY',
+        units: amountPHP,
+        pricePHP: 1,
+        amountPHP: amountPHP,
+        date: new Date().toISOString().split('T')[0],
+        notes: notes || 'Payday Automatic Cash Income Deposit'
+      });
+    }
+  };
+
+  // Auto-process due paydays on mount or asset update
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    let updated = false;
+
+    const newList = scheduledPaydays.map((item) => {
+      if (item.status === 'pending' && item.paydayDate <= todayStr) {
+        depositToCashOrHys(
+          item.targetKey,
+          item.amountPHP,
+          item.notes || `Automatic Payday Deposit on ${item.paydayDate}`
+        );
+        updated = true;
+        return { ...item, status: 'executed', executedAt: todayStr };
+      }
+      return item;
+    });
+
+    if (updated) {
+      setScheduledPaydays(newList);
+      localStorage.setItem('wealthvault_scheduled_paydays', JSON.stringify(newList));
+    }
+  }, [assets]);
+
+  const handleExecutePaydayDeposit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaydayError('');
+
+    const amountPHP = parseFormattedNumber(paydayAmount);
+    if (isNaN(amountPHP) || amountPHP <= 0) {
+      setPaydayError('Please enter a valid deposit amount greater than 0.');
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (paydayDate > todayStr) {
+      // Schedule for selected payday date
+      const newItem = {
+        id: 'payday_' + Date.now(),
+        amountPHP,
+        paydayType,
+        targetKey: paydayTargetKey,
+        paydayDate,
+        notes: paydayNotes || `${paydayType === '15th' ? '15th' : paydayType === '30th' ? '30th' : 'Payday'} Income Deposit`,
+        createdAt: todayStr,
+        status: 'pending',
+      };
+
+      const updatedList = [newItem, ...scheduledPaydays];
+      setScheduledPaydays(updatedList);
+      localStorage.setItem('wealthvault_scheduled_paydays', JSON.stringify(updatedList));
+    } else {
+      // Payday date is today or past, deposit immediately
+      depositToCashOrHys(paydayTargetKey, amountPHP, paydayNotes);
+    }
+
+    setShowPaydayModal(false);
+    setPaydayAmount('');
+    setPaydayNotes('');
   };
 
   // Add Asset Form state
@@ -266,6 +634,20 @@ export default function AssetSleeveTab({
           </div>
           <div className="p-3 sm:p-0 sm:pr-6 flex flex-wrap items-center gap-2">
             <button
+              onClick={() => {
+                const defaultFrom = assets[0]?.key || '';
+                const defaultTo = assets.find((a) => a.key !== defaultFrom)?.key || assets[0]?.key || '';
+                setTransferFromKey(defaultFrom);
+                setTransferToKey(defaultTo);
+                setShowTransferModal(true);
+              }}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-xs cursor-pointer"
+              title="Transfer capital across safe deposits, crypto, stocks, or time deposits"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+              <span>Transfer Across Assets 🔁</span>
+            </button>
+            <button
               onClick={() => setShowAssetForm(true)}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all shadow-xs cursor-pointer"
             >
@@ -274,6 +656,105 @@ export default function AssetSleeveTab({
             </button>
           </div>
         </div>
+
+        {activeSubTab === 'safe' && (
+          <div className="bg-gradient-to-r from-teal-900/10 via-emerald-900/10 to-blue-900/10 dark:from-teal-950/40 dark:via-emerald-950/30 dark:to-slate-900/40 border-b border-teal-200 dark:border-teal-500/20 p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-teal-100 dark:bg-teal-500/20 text-teal-700 dark:text-teal-300 rounded-xl border border-teal-300 dark:border-teal-500/30 shrink-0">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 flex-wrap">
+                  <span>AVAILABLE CASH & {getNextPaydayInfo().paydayTypeLabel.toUpperCase()} RESERVE</span>
+                  <span className="px-2 py-0.5 bg-teal-600 text-white rounded text-[9px] font-mono font-black">
+                    {getNextPaydayInfo().badgeText}
+                  </span>
+                </h4>
+
+                {/* Dynamic Cash Reserve Amount Display in Banner */}
+                {(() => {
+                  const availableCashAsset = assets.find((a) => a.key === 'available_cash');
+                  const cashVal = availableCashAsset ? getAssetValuation(availableCashAsset).totalValue : 0;
+                  const pendingItems = scheduledPaydays.filter((p) => p.status === 'pending');
+
+                  return (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-500/15 dark:bg-teal-400/10 border border-teal-300/80 dark:border-teal-500/30 rounded-lg text-teal-950 dark:text-teal-100 font-mono font-bold text-xs">
+                        <Wallet className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                        <span className="text-teal-900 dark:text-teal-200">Current Cash Reserve Balance:</span>
+                        <span className="text-teal-700 dark:text-teal-300 font-black text-sm">
+                          ₱{cashVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      {pendingItems.map((item) => (
+                        <div key={item.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/15 dark:bg-amber-400/10 border border-amber-300/80 dark:border-amber-500/30 rounded-lg text-amber-950 dark:text-amber-100 font-mono text-xs font-semibold">
+                          <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>Payday Auto-Deposit Scheduled ({item.paydayDate}):</span>
+                          <span className="font-black text-amber-700 dark:text-amber-300">
+                            +₱{item.amountPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newList = scheduledPaydays.filter(p => p.id !== item.id);
+                              setScheduledPaydays(newList);
+                              localStorage.setItem('wealthvault_scheduled_paydays', JSON.stringify(newList));
+                            }}
+                            className="ml-1 text-slate-400 hover:text-rose-500 cursor-pointer p-0.5"
+                            title="Cancel scheduled payday auto-deposit"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
+              <div className="hidden sm:flex flex-col items-end pr-3 border-r border-slate-200 dark:border-white/10 text-right">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Upcoming Income</span>
+                <span className="text-teal-600 dark:text-teal-400 font-mono font-extrabold text-xs">
+                  {getNextPaydayInfo().paydayTitle} ({getNextPaydayInfo().daysText})
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
+                  const fromKey = cashAsset ? cashAsset.key : (assets[0]?.key || '');
+                  const toKey = assets.find((a) => a.key !== fromKey)?.key || '';
+                  setTransferFromKey(fromKey);
+                  setTransferToKey(toKey);
+                  const cashVal = cashAsset ? getAssetValuation(cashAsset).totalValue : 0;
+                  if (cashVal > 0) setTransferAmount(cashVal.toString());
+                  setShowTransferModal(true);
+                }}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
+                title="Transfer directly from Current Cash Reserve Balance to another asset"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                <span>Transfer Cash Reserve 🔁</span>
+              </button>
+              <button
+                onClick={() => {
+                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
+                  setPaydayTargetKey(cashAsset ? cashAsset.key : 'available_cash');
+                  const pdInfo = getNextPaydayInfo();
+                  setPaydayDate(pdInfo.targetPaydayDateStr);
+                  setPaydayType('semimonthly');
+                  setPaydayNotes('Semi-Monthly Salary Deposit (Every 15th & End of Month)');
+                  setShowPaydayModal(true);
+                }}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ DEPOSIT CASH / PAYDAY 💵</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {activeSubTab === 'physical' && (
           <div className="bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800/40 p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -308,6 +789,26 @@ export default function AssetSleeveTab({
                   Click any asset below or the <b className="text-slate-900 dark:text-slate-200">Chart 📈</b> button to launch Yahoo Finance® live price quotes, technical analysis, community polls, and breaking news.
                 </p>
               </div>
+            </div>
+            <div className="shrink-0">
+              <button
+                onClick={() => {
+                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
+                  const riskAsset = riskAssets[0] || assets.find((a) => a.class === 'risk') || assets[0];
+                  const fromKey = cashAsset ? cashAsset.key : (assets[0]?.key || '');
+                  const toKey = riskAsset ? riskAsset.key : '';
+                  setTransferFromKey(fromKey);
+                  setTransferToKey(toKey);
+                  const cashVal = cashAsset ? getAssetValuation(cashAsset).totalValue : 0;
+                  if (cashVal > 0) setTransferAmount(cashVal.toString());
+                  setShowTransferModal(true);
+                }}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+                title="Transfer directly from Current Cash Reserve Balance into Risk Assets"
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                <span>Transfer Cash Reserve to Risk 🔁</span>
+              </button>
             </div>
           </div>
         )}
@@ -553,16 +1054,6 @@ export default function AssetSleeveTab({
                     </td>
                     <td className="p-5 text-right pr-8">
                       <div className="flex items-center justify-end gap-2">
-                        {activeSubTab === 'risk' && (
-                          <button
-                            onClick={() => setSelectedTradingViewAsset(asset)}
-                            className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-xs transition-all flex items-center gap-1 shrink-0 cursor-pointer"
-                            title="Open Yahoo Finance® Chart & Quotations"
-                          >
-                            <BarChart2 className="w-3 h-3" />
-                            <span>Chart 📈</span>
-                          </button>
-                        )}
                         {asset.class === 'physical' && (
                           <button
                             onClick={() => handleQuickTransferClass(asset, 'liability')}
@@ -581,6 +1072,7 @@ export default function AssetSleeveTab({
                             <span>To Physical 🏠</span>
                           </button>
                         )}
+
                         <button
                           onClick={() => {
                             setEditingAsset(asset);
@@ -1114,6 +1606,515 @@ export default function AssetSleeveTab({
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold uppercase"
                 >
                   Create Asset
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Funds Across Assets Modal Dialog */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-white/5">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2.5">
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-200 dark:border-emerald-500/20">
+                  <ArrowRightLeft className="w-5 h-5" />
+                </div>
+                <span>Transfer Funds Across Assets</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setTransferError('');
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {transferError && (
+              <div className="p-3 mb-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{transferError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleExecuteAssetTransfer} className="space-y-4">
+              {/* Source Asset */}
+              <div>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Transfer From (Source Asset)</span>
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">Deduction Outflow</span>
+                </label>
+                <select
+                  value={transferFromKey}
+                  onChange={(e) => setTransferFromKey(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  {assets.map((asset) => {
+                    const val = getAssetValuation(asset);
+                    const isCashReserve = asset.key === 'available_cash' || asset.assetType === 'cash';
+                    const displayName = isCashReserve
+                      ? `💵 Current Cash Reserve Balance (${asset.name})`
+                      : asset.name;
+                    return (
+                      <option key={`from_${asset.key}`} value={asset.key}>
+                        [{asset.class.toUpperCase()}] {displayName} ({asset.platform}) — ₱{val.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </option>
+                    );
+                  })}
+                </select>
+                {(() => {
+                  const srcAsset = assets.find((a) => a.key === transferFromKey);
+                  if (!srcAsset) return null;
+                  const srcVal = getAssetValuation(srcAsset);
+                  return (
+                    <div className="mt-1.5 p-2 bg-slate-50 dark:bg-slate-950/60 rounded-md border border-slate-100 dark:border-white/5 text-[11px] flex justify-between text-slate-600 dark:text-slate-400 font-mono">
+                      <span>Available Valuation: <b>₱{srcVal.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></span>
+                      <span>Cost Basis: <b>₱{srcAsset.costBasisPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Destination Asset */}
+              <div>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Transfer To (Destination Asset)</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">Inflow Addition</span>
+                </label>
+                <select
+                  value={transferToKey}
+                  onChange={(e) => setTransferToKey(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  {assets.map((asset) => {
+                    const val = getAssetValuation(asset);
+                    const isCashReserve = asset.key === 'available_cash' || asset.assetType === 'cash';
+                    const displayName = isCashReserve
+                      ? `💵 Current Cash Reserve Balance (${asset.name})`
+                      : asset.name;
+                    return (
+                      <option key={`to_${asset.key}`} value={asset.key} disabled={asset.key === transferFromKey}>
+                        [{asset.class.toUpperCase()}] {displayName} ({asset.platform}) — ₱{val.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </option>
+                    );
+                  })}
+                </select>
+                {(() => {
+                  const dstAsset = assets.find((a) => a.key === transferToKey);
+                  if (!dstAsset) return null;
+                  const dstVal = getAssetValuation(dstAsset);
+                  const isDstSafe = dstAsset.class === 'safe' || dstAsset.assetType === 'cash' || dstAsset.assetType === 'deposit' || dstAsset.assetType === 'hys' || dstAsset.class === 'liability' || dstAsset.assetType === 'liability';
+                  let unitPrice = dstAsset.currentPricePHP;
+                  if (!isDstSafe && (!unitPrice || unitPrice <= 0 || (unitPrice === 1 && dstAsset.costBasisPHP > 10))) {
+                    unitPrice = dstAsset.units > 0 ? dstAsset.costBasisPHP / dstAsset.units : dstAsset.costBasisPHP;
+                  }
+                  return (
+                    <div className="mt-1.5 p-2 bg-slate-50 dark:bg-slate-950/60 rounded-md border border-slate-100 dark:border-white/5 text-[11px] flex justify-between text-slate-600 dark:text-slate-400 font-mono">
+                      <span>Current Unit Price: <b>{isDstSafe ? '₱1.00' : `₱${unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`}</b></span>
+                      <span>Current Holdings: <b>₱{dstVal.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b></span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Transfer Amount Input */}
+              <div>
+                <SmartCalculatorInput
+                  label="Transfer Amount (PHP)"
+                  value={transferAmount}
+                  onChange={setTransferAmount}
+                />
+                {/* Preset percentage & Cash Reserve buttons */}
+                {(() => {
+                  const srcAsset = assets.find((a) => a.key === transferFromKey);
+                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
+                  const cashVal = cashAsset ? getAssetValuation(cashAsset).totalValue : 0;
+                  if (!srcAsset) return null;
+                  const srcVal = getAssetValuation(srcAsset);
+                  const maxVal = srcVal.totalValue;
+
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quick Fill:</span>
+                      {cashVal > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTransferAmount(cashVal.toString());
+                            if (cashAsset && transferFromKey !== cashAsset.key) {
+                              setTransferFromKey(cashAsset.key);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/80 text-teal-700 dark:text-teal-300 text-[10px] font-extrabold rounded border border-teal-200 dark:border-teal-700/50 cursor-pointer transition-colors flex items-center gap-1 shadow-2xs"
+                          title="Click to fill transfer amount with Current Cash Reserve Balance"
+                        >
+                          <Coins className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                          <span>Cash Reserve Balance (₱{cashVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})</span>
+                        </button>
+                      )}
+                      {[0.25, 0.5, 0.75, 1.0].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => {
+                            const calculated = Math.floor(maxVal * pct);
+                            setTransferAmount(calculated.toString());
+                          }}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold rounded border border-slate-200 dark:border-white/5 cursor-pointer transition-colors"
+                        >
+                          {pct === 1 ? 'MAX (100%)' : `${pct * 100}%`}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Live Calculation Preview Card */}
+              {(() => {
+                const amountPHP = parseFormattedNumber(transferAmount);
+                const srcAsset = assets.find((a) => a.key === transferFromKey);
+                const dstAsset = assets.find((a) => a.key === transferToKey);
+
+                if (!amountPHP || amountPHP <= 0 || !srcAsset || !dstAsset) return null;
+
+                const isDstPhysical = dstAsset.class === 'physical' || dstAsset.assetType === 'property';
+                const isDstSafe = dstAsset.class === 'safe' || dstAsset.assetType === 'cash' || dstAsset.assetType === 'deposit' || dstAsset.assetType === 'hys';
+                const isDstLiability = dstAsset.class === 'liability' || dstAsset.assetType === 'liability';
+
+                let dstPrice = dstAsset.currentPricePHP;
+                if (!isDstSafe && !isDstLiability && !isDstPhysical && (!dstPrice || dstPrice <= 0 || (dstPrice === 1 && dstAsset.costBasisPHP > 10))) {
+                  dstPrice = dstAsset.units > 0 ? dstAsset.costBasisPHP / dstAsset.units : dstAsset.costBasisPHP;
+                }
+                if (isDstSafe || isDstLiability || isDstPhysical) dstPrice = 1;
+
+                const unitsAdded = amountPHP / (dstPrice || 1);
+
+                return (
+                  <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 rounded-xl space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-bold text-emerald-950 dark:text-emerald-200 border-b border-emerald-200/60 dark:border-emerald-800/30 pb-2">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Transfer Breakdown Preview</span>
+                      </span>
+                      <span className="font-mono text-emerald-700 dark:text-emerald-300">₱{amountPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                      <div className="p-2 bg-white/80 dark:bg-slate-900/80 rounded-lg border border-emerald-100 dark:border-emerald-900/50">
+                        <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-sans">Deduction (-):</span>
+                        <span className="text-rose-600 dark:text-rose-400 font-bold block truncate">{srcAsset.name}</span>
+                        <span className="text-slate-600 dark:text-slate-300 mt-0.5 block">-₱{amountPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="p-2 bg-white/80 dark:bg-slate-900/80 rounded-lg border border-emerald-100 dark:border-emerald-900/50">
+                        <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-sans">Addition (+):</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold block truncate">{dstAsset.name}</span>
+                        <span className="text-slate-600 dark:text-slate-300 mt-0.5 block">
+                          +₱{amountPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {
+                            isDstSafe
+                              ? '(Principal Cost Basis)'
+                              : isDstLiability
+                              ? '(Principal Debt Balance)'
+                              : isDstPhysical
+                              ? '(Principal Basis)'
+                              : `(+${unitsAdded.toLocaleString(undefined, { maximumFractionDigits: 6 })} units)`
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Transfer Notes */}
+              <div>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1">
+                  Transfer Purpose / Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Reallocated emergency cash to Bitcoin or Time Deposit"
+                  value={transferNotes}
+                  onChange={(e) => setTransferNotes(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTransferModal(false);
+                    setTransferError('');
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold uppercase tracking-wider flex items-center space-x-2 shadow-xs cursor-pointer transition-all"
+                >
+                  <ArrowRightLeft className="w-4 h-4" />
+                  <span>Confirm Asset Transfer</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Payday Income Deposit Modal Dialog (15th & 30th) */}
+      {showPaydayModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-white/5">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2.5">
+                <div className="p-2 bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-lg border border-teal-200 dark:border-teal-500/20">
+                  <Coins className="w-5 h-5" />
+                </div>
+                <span>Deposit Income to Available Cash</span>
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPaydayModal(false);
+                  setPaydayError('');
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {paydayError && (
+              <div className="p-3 mb-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>{paydayError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleExecutePaydayDeposit} className="space-y-4">
+              {/* Payday Date & Schedule Frequency Selector */}
+              {(() => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const pSemimonthly = computeSchedulePresetInfo('semimonthly');
+                const p15 = computeSchedulePresetInfo('15th');
+                const pEndOfMonth = computeSchedulePresetInfo('endofmonth');
+                const pWeekly = computeSchedulePresetInfo('weekly');
+                const pMonthly = computeSchedulePresetInfo('monthly');
+                const pToday = computeSchedulePresetInfo('today');
+
+                return (
+                  <div className="space-y-3">
+                    {/* Schedule Frequency Dropdown */}
+                    <div>
+                      <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Deposit Schedule / Frequency</span>
+                        <span className="text-[10px] text-teal-600 dark:text-teal-400 font-mono font-bold">
+                          {paydayDate > todayStr ? `Auto-credits on ${paydayDate}` : 'Immediate Deposit'}
+                        </span>
+                      </label>
+                      <select
+                        value={paydayType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setPaydayType(val);
+                          if (val !== 'custom') {
+                            const info = computeSchedulePresetInfo(val);
+                            setPaydayDate(info.dateStr);
+                            setPaydayNotes(info.defaultNote);
+                          }
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none focus:border-teal-500 cursor-pointer shadow-2xs"
+                      >
+                        <option value="semimonthly">🗓️ Every 15th & End of Month ({pSemimonthly.dateStr})</option>
+                        <option value="15th">🗓️ Specific 15th Payday ({p15.dateStr})</option>
+                        <option value="endofmonth">🗓️ Specific End of Month Payday ({pEndOfMonth.dateStr})</option>
+                        <option value="weekly">📅 Weekly Income ({pWeekly.dateStr})</option>
+                        <option value="monthly">📆 Monthly Salary ({pMonthly.dateStr})</option>
+                        <option value="today">⚡ Immediate (Deposit Today — {pToday.dateStr})</option>
+                        <option value="custom">⚙️ Custom Target Date...</option>
+                      </select>
+                    </div>
+
+                    {/* Quick Frequency Pill Buttons */}
+                    <div>
+                      <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                        Quick Presets:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { id: 'semimonthly', label: '15th & End of Month', date: pSemimonthly.dateStr },
+                          { id: '15th', label: '15th Payday', date: p15.dateStr },
+                          { id: 'endofmonth', label: 'End of Month', date: pEndOfMonth.dateStr },
+                          { id: 'weekly', label: 'Weekly', date: pWeekly.dateStr },
+                          { id: 'today', label: 'Deposit Today', date: pToday.dateStr },
+                        ].map((preset) => {
+                          const isSelected = paydayType === preset.id || paydayDate === preset.date;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => {
+                                setPaydayType(preset.id);
+                                const info = computeSchedulePresetInfo(preset.id);
+                                setPaydayDate(info.dateStr);
+                                setPaydayNotes(info.defaultNote);
+                              }}
+                              className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                                isSelected
+                                  ? 'bg-teal-500/15 dark:bg-teal-400/20 border-teal-500 text-teal-700 dark:text-teal-300 shadow-2xs'
+                                  : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                              }`}
+                            >
+                              <span>{preset.label}</span>
+                              <span className="text-[9px] font-mono opacity-70">({preset.date.slice(5)})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Target Date Input */}
+                    <div>
+                      <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1">
+                        Target Payday Date
+                      </label>
+                      <input
+                        type="date"
+                        value={paydayDate}
+                        onChange={(e) => {
+                          setPaydayType('custom');
+                          setPaydayDate(e.target.value);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-1.5 text-xs font-mono font-bold focus:outline-none focus:border-teal-500"
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Deposit Amount Input */}
+              <div>
+                <SmartCalculatorInput
+                  label="Income Deposit Amount (PHP)"
+                  value={paydayAmount}
+                  onChange={setPaydayAmount}
+                />
+                {/* Quick Fill Buttons */}
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quick Fill:</span>
+                  {[10000, 15000, 25000, 30000, 50000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setPaydayAmount(amt.toString())}
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold rounded border border-slate-200 dark:border-white/5 cursor-pointer transition-colors"
+                    >
+                      ₱{amt.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Preview Card & Auto-Deposit Explanation */}
+              {(() => {
+                const amountPHP = parseFormattedNumber(paydayAmount);
+                const availableCashAsset = assets.find((a) => a.key === 'available_cash');
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isScheduledFuture = paydayDate > todayStr;
+
+                if (!amountPHP || amountPHP <= 0) return null;
+
+                const currentBal = availableCashAsset ? getAssetValuation(availableCashAsset).totalValue : 0;
+                const newBal = currentBal + amountPHP;
+
+                return (
+                  <div className="space-y-2">
+                    {isScheduledFuture ? (
+                      <div className="p-3.5 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex items-center gap-2 font-bold text-amber-950 dark:text-amber-200">
+                          <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <span>🗓️ Automatic Deposit Scheduled for Payday</span>
+                        </div>
+                        <p className="text-[11px] text-amber-900/90 dark:text-amber-200/80 leading-relaxed font-sans">
+                          This <b>₱{amountPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> will be <b>automatically deposited</b> into <b>Available Cash Reserve</b> on <b>{paydayDate}</b>. You don't need to do anything manually on payday!
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 bg-teal-50/90 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-800/60 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex items-center gap-2 font-bold text-teal-950 dark:text-teal-200">
+                          <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                          <span>⚡ Immediate Deposit Today</span>
+                        </div>
+                        <p className="text-[11px] text-teal-900/90 dark:text-teal-200/80 leading-relaxed font-sans">
+                          This <b>₱{amountPHP.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b> will be credited directly into <b>Available Cash Reserve</b> today.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="p-3 bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-800/30 rounded-xl space-y-2 text-xs">
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                        <div className="p-2 bg-white/80 dark:bg-slate-900/80 rounded-lg border border-teal-100 dark:border-teal-900/50">
+                          <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-sans">Current Balance:</span>
+                          <span className="text-slate-700 dark:text-slate-300 font-bold block">₱{currentBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="p-2 bg-white/80 dark:bg-slate-900/80 rounded-lg border border-teal-100 dark:border-teal-900/50">
+                          <span className="text-[9px] text-slate-400 uppercase tracking-wider block font-sans">{isScheduledFuture ? 'Projected Payday Balance:' : 'New Cash Balance:'}</span>
+                          <span className="text-teal-600 dark:text-teal-400 font-bold block">₱{newBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Purpose / Notes */}
+              <div>
+                <label className="block text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider mb-1">
+                  Deposit Purpose / Description
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 15th Payday Salary / Freelance Income"
+                  value={paydayNotes}
+                  onChange={(e) => setPaydayNotes(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPaydayModal(false);
+                    setPaydayError('');
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-extrabold uppercase tracking-wider flex items-center space-x-2 shadow-xs cursor-pointer transition-all"
+                >
+                  {paydayDate > new Date().toISOString().split('T')[0] ? (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      <span>Schedule Auto-Deposit 🗓️</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Confirm Immediate Deposit 💵</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

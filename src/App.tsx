@@ -52,6 +52,20 @@ const FREE_ALLOWED_TABS = ['dashboard', 'pricing', 'ledger', 'social', 'transact
 
 const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
+    key: 'available_cash',
+    name: 'Available Cash Reserve (15th/30th Income)',
+    class: 'safe',
+    assetType: 'cash',
+    platform: 'Primary Operating Bank',
+    units: 0,
+    currentPricePHP: 1,
+    costBasisPHP: 0,
+    yieldPercent: 0,
+    yieldFrequency: 'annual',
+    withholdingTaxPercent: 0,
+    change24h: 0.00
+  },
+  {
     key: 'hys',
     name: 'Maya High-Yield Savings (HYS)',
     class: 'safe',
