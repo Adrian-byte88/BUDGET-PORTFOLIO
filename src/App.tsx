@@ -53,7 +53,7 @@ const FREE_ALLOWED_TABS = ['dashboard', 'pricing', 'ledger', 'social', 'transact
 const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
     key: 'available_cash',
-    name: 'Available Cash Reserve (15th/30th Income)',
+    name: 'Available Cash Reserve',
     class: 'safe',
     assetType: 'cash',
     platform: 'Primary Operating Bank',
@@ -67,14 +67,14 @@ const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   },
   {
     key: 'hys',
-    name: 'Maya High-Yield Savings (HYS)',
+    name: 'Maya High-Yield Savings (5% HYS)',
     class: 'safe',
     assetType: 'deposit',
     platform: 'Maya Bank',
     units: 250000,
     currentPricePHP: 1,
     costBasisPHP: 250000,
-    yieldPercent: 5.25,
+    yieldPercent: 5.0,
     yieldFrequency: 'annual',
     withholdingTaxPercent: 20,
     change24h: 0.05

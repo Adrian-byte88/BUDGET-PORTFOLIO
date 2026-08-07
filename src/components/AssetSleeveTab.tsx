@@ -673,15 +673,18 @@ export default function AssetSleeveTab({
 
                 {/* Dynamic Cash Reserve Amount Display in Banner */}
                 {(() => {
+                  const hysAsset = assets.find((a) => a.key === 'hys' || a.assetType === 'hys' || a.name.toLowerCase().includes('high-yield'));
                   const availableCashAsset = assets.find((a) => a.key === 'available_cash');
-                  const cashVal = availableCashAsset ? getAssetValuation(availableCashAsset).totalValue : 0;
+                  const hysVal = hysAsset ? getAssetValuation(hysAsset).totalValue : 0;
+                  const availableVal = availableCashAsset ? getAssetValuation(availableCashAsset).totalValue : 0;
+                  const cashVal = hysAsset ? hysVal : availableVal;
                   const pendingItems = scheduledPaydays.filter((p) => p.status === 'pending');
 
                   return (
                     <div className="mt-2.5 flex flex-wrap items-center gap-2">
                       <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-500/15 dark:bg-teal-400/10 border border-teal-300/80 dark:border-teal-500/30 rounded-lg text-teal-950 dark:text-teal-100 font-mono font-bold text-xs">
                         <Wallet className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-                        <span className="text-teal-900 dark:text-teal-200">Current Cash Reserve Balance:</span>
+                        <span className="text-teal-900 dark:text-teal-200">Current Cash Reserve Balance (High-Yield Savings 5%):</span>
                         <span className="text-teal-700 dark:text-teal-300 font-black text-sm">
                           ₱{cashVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
@@ -720,23 +723,6 @@ export default function AssetSleeveTab({
                   {getNextPaydayInfo().paydayTitle} ({getNextPaydayInfo().daysText})
                 </span>
               </div>
-              <button
-                onClick={() => {
-                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
-                  const fromKey = cashAsset ? cashAsset.key : (assets[0]?.key || '');
-                  const toKey = assets.find((a) => a.key !== fromKey)?.key || '';
-                  setTransferFromKey(fromKey);
-                  setTransferToKey(toKey);
-                  const cashVal = cashAsset ? getAssetValuation(cashAsset).totalValue : 0;
-                  if (cashVal > 0) setTransferAmount(cashVal.toString());
-                  setShowTransferModal(true);
-                }}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs cursor-pointer transition-all shrink-0"
-                title="Transfer directly from Current Cash Reserve Balance to another asset"
-              >
-                <ArrowRightLeft className="w-4 h-4" />
-                <span>Transfer Cash Reserve 🔁</span>
-              </button>
               <button
                 onClick={() => {
                   const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
@@ -789,26 +775,6 @@ export default function AssetSleeveTab({
                   Click any asset below or the <b className="text-slate-900 dark:text-slate-200">Chart 📈</b> button to launch Yahoo Finance® live price quotes, technical analysis, community polls, and breaking news.
                 </p>
               </div>
-            </div>
-            <div className="shrink-0">
-              <button
-                onClick={() => {
-                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
-                  const riskAsset = riskAssets[0] || assets.find((a) => a.class === 'risk') || assets[0];
-                  const fromKey = cashAsset ? cashAsset.key : (assets[0]?.key || '');
-                  const toKey = riskAsset ? riskAsset.key : '';
-                  setTransferFromKey(fromKey);
-                  setTransferToKey(toKey);
-                  const cashVal = cashAsset ? getAssetValuation(cashAsset).totalValue : 0;
-                  if (cashVal > 0) setTransferAmount(cashVal.toString());
-                  setShowTransferModal(true);
-                }}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-lg text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
-                title="Transfer directly from Current Cash Reserve Balance into Risk Assets"
-              >
-                <ArrowRightLeft className="w-4 h-4" />
-                <span>Transfer Cash Reserve to Risk 🔁</span>
-              </button>
             </div>
           </div>
         )}
@@ -1732,7 +1698,7 @@ export default function AssetSleeveTab({
                 {/* Preset percentage & Cash Reserve buttons */}
                 {(() => {
                   const srcAsset = assets.find((a) => a.key === transferFromKey);
-                  const cashAsset = assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash' || a.assetType === 'hys');
+                  const cashAsset = assets.find((a) => a.key === 'hys' || a.assetType === 'hys' || a.name.toLowerCase().includes('high-yield')) || assets.find((a) => a.key === 'available_cash') || assets.find((a) => a.assetType === 'cash');
                   const cashVal = cashAsset ? getAssetValuation(cashAsset).totalValue : 0;
                   if (!srcAsset) return null;
                   const srcVal = getAssetValuation(srcAsset);
