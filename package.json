@@ -1,6 +1,8 @@
 {
-  "name": "react-example",
+  "name": "wealth-vault",
   "private": true,
+  "author": "Junnel <junnelmrfl@gmail.com>",
+  "license": "UNLICENSED",
   "version": "0.0.0",
   "type": "module",
   "engines": {
