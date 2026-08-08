@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { auth, db } from './lib/firebase';
 import SignInPanel from './components/SignInPanel';
+import PublicLandingPage from './components/PublicLandingPage';
 import {
   AssetPosition,
   ExpenseEntry,
@@ -272,6 +273,8 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'home' | 'dashboard' | 'pricing' | 'portfolio' | 'assets' | 'ledger' | 'social' | 'audit' | 'transactions'>('home');
   const [darkMode, setDarkMode] = useState(false);
+  const [isGuestMode, setIsGuestMode] = useState(false);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<'profile' | 'preferences' | 'export'>('profile');
   const [highlightId, setHighlightId] = useState<{type: string, id: string, tab?: string} | null>(null);
@@ -749,7 +752,29 @@ export default function App() {
       </div>
     );
   }
-  if (!firebaseUser) return <SignInPanel onSignIn={() => {}} />;
+  if (!firebaseUser && !isGuestMode) {
+    return (
+      <>
+        <PublicLandingPage
+          onOpenSignIn={() => setShowSignInModal(true)}
+          onExploreGuest={() => setIsGuestMode(true)}
+        />
+        {showSignInModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+            <div className="relative w-full max-w-md">
+              <button
+                onClick={() => setShowSignInModal(false)}
+                className="absolute -top-12 right-0 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+              >
+                Close (✕)
+              </button>
+              <SignInPanel onSignIn={() => setShowSignInModal(false)} />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   const startVoiceToText = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -1518,13 +1543,37 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#070a13] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      {/* Guest Mode Banner */}
+      {!firebaseUser && isGuestMode && (
+        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 border-b border-blue-800/60 px-4 py-2 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 relative z-50">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>You are viewing in <strong>Guest Demo Mode</strong>. Changes remain local to your session.</span>
+          </div>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowSignInModal(true)}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-lg text-[11px] shadow-sm transition-all cursor-pointer"
+            >
+              Sign In / Save to Cloud
+            </button>
+            <button
+              onClick={() => setIsGuestMode(false)}
+              className="text-slate-400 hover:text-white transition-colors cursor-pointer text-xs font-bold"
+            >
+              ✕ Exit Demo
+            </button>
+          </div>
+        </div>
+      )}
       
       {/* Top Bar Navigation */}
       <Navbar
         email={email || ''}
         onLogout={() => {
+          setIsGuestMode(false);
           signOut(auth);
-          triggerToast('Session Destroyed', 'Credentials flushed from current cookie scope', 'warning');
+          triggerToast('Session Closed', 'Returned to Public Landing Page', 'warning');
         }}
         darkMode={darkMode}
         onToggleDarkMode={() => setDarkMode(!darkMode)}
@@ -1542,7 +1591,24 @@ export default function App() {
         subscriptionTier={subscriptionTier}
         isAdmin={isAdmin}
         onOpenPricing={() => setActiveTab('pricing')}
+        onOpenSignIn={() => setShowSignInModal(true)}
+        isGuest={!firebaseUser}
       />
+
+      {/* Sign In Modal Overlay for Guest Mode */}
+      {!firebaseUser && showSignInModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+          <div className="relative w-full max-w-md">
+            <button
+              onClick={() => setShowSignInModal(false)}
+              className="absolute -top-12 right-0 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+            >
+              Close (✕)
+            </button>
+            <SignInPanel onSignIn={() => setShowSignInModal(false)} />
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification Container */}
       {toast && (

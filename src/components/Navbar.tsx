@@ -21,6 +21,8 @@ interface NavbarProps {
   subscriptionTier?: 'free' | 'pro';
   isAdmin?: boolean;
   onOpenPricing?: () => void;
+  onOpenSignIn?: () => void;
+  isGuest?: boolean;
 }
 
 export default function Navbar({
@@ -39,6 +41,8 @@ export default function Navbar({
   subscriptionTier = 'free',
   isAdmin = false,
   onOpenPricing,
+  onOpenSignIn,
+  isGuest = false,
 }: NavbarProps) {
   const [showAlerts, setShowAlerts] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -191,60 +195,72 @@ export default function Navbar({
             )}
           </div>
 
-          {/* Clickable User Email, Avatar & Settings Controls */}
+          {/* Clickable User Email, Avatar & Settings Controls or Guest Sign In */}
           <div className="flex items-center space-x-2 pl-3 border-l border-slate-200 dark:border-white/5">
-            <button
-              onClick={() => onOpenSettings('profile')}
-              className="flex items-center space-x-2.5 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all cursor-pointer group text-left"
-              title="Click to open App Settings & Profile"
-            >
-              <div className="flex flex-col items-end">
-                <span className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors max-w-[140px] truncate">
-                  {email}
-                </span>
-                <span className="text-[9px] uppercase tracking-widest flex items-center gap-1 font-extrabold">
-                  {isAdmin ? (
-                    <span className="text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
-                      <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
-                      Admin
+            {isGuest || !email ? (
+              <button
+                onClick={onOpenSignIn}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <User className="w-4 h-4" />
+                <span>Sign In</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => onOpenSettings('profile')}
+                  className="flex items-center space-x-2.5 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all cursor-pointer group text-left"
+                  title="Click to open App Settings & Profile"
+                >
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors max-w-[140px] truncate">
+                      {email}
                     </span>
-                  ) : subscriptionTier === 'pro' ? (
-                    <span className="text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
-                      <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
-                      Pro Plan
+                    <span className="text-[9px] uppercase tracking-widest flex items-center gap-1 font-extrabold">
+                      {isAdmin ? (
+                        <span className="text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
+                          <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                          Admin
+                        </span>
+                      ) : subscriptionTier === 'pro' ? (
+                        <span className="text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
+                          <Crown className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                          Pro Plan
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                          <Lock className="w-2.5 h-2.5" />
+                          Free Tier
+                        </span>
+                      )}
+                      <span className="text-slate-400 dark:text-slate-500">• Settings</span>
                     </span>
-                  ) : (
-                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
-                      <Lock className="w-2.5 h-2.5" />
-                      Free Tier
-                    </span>
-                  )}
-                  <span className="text-slate-400 dark:text-slate-500">• Settings</span>
-                </span>
-              </div>
-              
-              <div className="relative">
-                {profilePic ? (
-                  <img
-                    src={profilePic}
-                    alt="User Profile"
-                    className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 group-hover:scale-105 transition-transform"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 border border-slate-200 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
-                    <User className="w-4 h-4" />
                   </div>
-                )}
-              </div>
-            </button>
+                  
+                  <div className="relative">
+                    {profilePic ? (
+                      <img
+                        src={profilePic}
+                        alt="User Profile"
+                        className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-white/10 group-hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 border border-slate-200 dark:border-white/10 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform">
+                        <User className="w-4 h-4" />
+                      </div>
+                    )}
+                  </div>
+                </button>
 
-            <button
-              onClick={onLogout}
-              className="p-2 text-rose-600 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-200"
-              title="Logout Securely"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+                <button
+                  onClick={onLogout}
+                  className="p-2 text-rose-600 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all duration-200 cursor-pointer"
+                  title="Logout Securely"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
