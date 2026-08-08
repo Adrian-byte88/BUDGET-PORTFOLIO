@@ -542,7 +542,7 @@ export default function App() {
         isInitialized.current = true;
       }
     }, (err) => {
-      console.error("Firestore onSnapshot error:", err);
+      console.warn("Firestore onSnapshot:", err);
       if (err.message && (err.message.includes('offline') || err.message.includes('unavailable'))) {
         triggerToast('Offline', 'Firestore is currently unreachable. Using local data.', 'warning');
       }

@@ -13,8 +13,17 @@ function ErrorBoundary({ children }: { children: ReactNode }) {
       setHasError(true);
       setErrorMessage(event.message || 'An unexpected error occurred');
     };
+    const rejectionHandler = (event: PromiseRejectionEvent) => {
+      // Handle unhandled rejections gracefully without triggering false-positive console error noise
+      const reasonMsg = event.reason?.message || String(event.reason || '');
+      console.warn('Unhandled promise rejection captured:', reasonMsg);
+    };
     window.addEventListener('error', errorHandler);
-    return () => window.removeEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
+    return () => {
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
+    };
   }, []);
 
   if (hasError) {
