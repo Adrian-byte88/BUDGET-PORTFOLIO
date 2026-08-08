@@ -361,8 +361,10 @@ export default function App() {
     return (localStorage.getItem(`wealth_vault_sub_tier_${email}`) as 'free' | 'pro') || 'free';
   });
 
+  const FREE_ALLOWED_TABS = ['home', 'dashboard', 'ledger', 'social', 'transactions'] as const;
+
   const accessibleTabs = (!isAdmin && subscriptionTier === 'free')
-    ? (['home', 'ledger', 'social', 'transactions'] as const)
+    ? (['home', 'dashboard', 'ledger', 'social', 'transactions'] as const)
     : (['home', 'dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
   useEffect(() => {
@@ -1758,6 +1760,8 @@ export default function App() {
             isAdmin={isAdmin}
             subscriptionTier={subscriptionTier}
             onOpenPricing={() => setActiveTab('pricing')}
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
+            onOpenLedger={() => setActiveTab('ledger')}
           />
         )}
 
