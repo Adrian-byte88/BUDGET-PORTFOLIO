@@ -115,26 +115,26 @@ export default function HomePage({
   return (
     <div className="space-y-6 sm:space-y-8 animate-fadeIn">
       {/* Top Welcome Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-slate-800 shadow-xl p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-sm dark:shadow-xl p-6 sm:p-8">
         {/* Subtle Background Pattern */}
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+        <div className="absolute inset-0 opacity-5 dark:opacity-10 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
         
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping" />
                 Live Portfolio Sync
               </span>
               {isAdmin || subscriptionTier === 'pro' ? (
-                <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+                <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400" />
                   Enterprise PRO Active
                 </span>
               ) : (
                 <button
                   onClick={onOpenPricing}
-                  className="px-2.5 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-500/20 dark:hover:bg-blue-500/30 dark:text-blue-300 dark:border-blue-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <span>Free Account • Upgrade to PRO</span>
                   <ChevronRight className="w-3 h-3" />
@@ -144,9 +144,9 @@ export default function HomePage({
 
             <div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
-                {timeGreeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 capitalize">{userName}</span>!
+                {timeGreeting}, <span className="text-emerald-600 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-emerald-400 dark:via-teal-300 dark:to-cyan-400 capitalize">{userName}</span>!
               </h1>
-              <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl font-medium leading-relaxed">
+              <p className="text-slate-600 dark:text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl font-medium leading-relaxed">
                 Here is your live financial command center. Sourced directly from your Maya High-Yield Savings (5% APY), investments, expense ledger, and asset registry.
               </p>
             </div>
@@ -156,25 +156,17 @@ export default function HomePage({
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               onClick={() => onNavigateTab('ledger')}
-              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer"
+              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-md hover:shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer"
             >
               <CreditCard className="w-4 h-4" />
               <span>Record Expense</span>
             </button>
 
             <button
-              onClick={onOpenChat}
-              className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>Ask AI Wealth Coach</span>
-            </button>
-
-            <button
               onClick={() => onNavigateTab('dashboard')}
-              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 dark:border-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <PieChart className="w-4 h-4 text-cyan-400" />
+              <PieChart className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
               <span>Analytics</span>
             </button>
           </div>
@@ -397,49 +389,8 @@ export default function HomePage({
           </div>
         </div>
 
-        {/* Right 1 Column: Financial Health Score & Quick Navigation Hub */}
+        {/* Right 1 Column: Quick Navigation Hub */}
         <div className="space-y-6">
-          {/* Wealth Health AI Coach Card */}
-          <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 border border-indigo-800/60 rounded-2xl p-5 text-white shadow-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-                <h3 className="font-extrabold text-sm uppercase tracking-wider text-amber-200">AI Health Assessment</h3>
-              </div>
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black rounded-full">
-                92 / 100 EXCELLENT
-              </span>
-            </div>
-
-            <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2 text-xs">
-              <div className="flex items-center space-x-2 text-emerald-400 font-bold">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>High Yield Maya 5% active</span>
-              </div>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Your cash reserve generates monthly passive interest safeguarding purchasing power against local CPI inflation.
-              </p>
-            </div>
-
-            <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2 text-xs">
-              <div className="flex items-center space-x-2 text-cyan-400 font-bold">
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>Safe Shield Allocation</span>
-              </div>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Safe assets represent {safeRatioPercent}% of portfolio weight. Target ratio (85%) is maintained.
-              </p>
-            </div>
-
-            <button
-              onClick={onOpenChat}
-              className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>Launch Deep AI Portfolio Coach</span>
-            </button>
-          </div>
-
           {/* Quick Access Navigation Modules */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs space-y-3">
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Platform Modules</h3>
