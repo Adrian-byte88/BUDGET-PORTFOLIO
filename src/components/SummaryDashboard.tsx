@@ -84,10 +84,34 @@ export default function SummaryDashboard({
   const [isEditingDesired, setIsEditingDesired] = useState<boolean>(false);
   const [desiredInputVal, setDesiredInputVal] = useState<string>(defaultDesiredLimit.toString());
 
-  // Calculate current month's total spent across all category budgets
-  const totalSpentCurrentMonth = useMemo(() => {
-    return budgets.reduce((acc, b) => acc + b.spentPHP, 0);
+  // Category spent amounts derived directly from expenses ledger
+  const categorySpentMap = useMemo(() => {
+    const map: Record<string, number> = {
+      Grocery: 0,
+      Utilities: 0,
+      Travel: 0,
+      Dining: 0,
+      Shopping: 0,
+      Other: 0,
+    };
+    expenses.forEach((e) => {
+      const bucket = mapExpenseCategory(e.category);
+      map[bucket] = (map[bucket] || 0) + (e.amountPHP || 0);
+    });
+    return map;
+  }, [expenses]);
+
+  // Calculate sum of individual category budget limits
+  const sumCategoryLimits = useMemo(() => {
+    return budgets.reduce((acc: number, b) => acc + (b.limitPHP || 0), 0);
   }, [budgets]);
+
+  const isCapMismatch = desiredMonthlyBudget !== sumCategoryLimits;
+
+  // Calculate current month's total spent across all category budgets derived directly from expense ledger
+  const totalSpentCurrentMonth = useMemo(() => {
+    return Object.values(categorySpentMap).reduce((acc: number, val: number) => acc + val, 0);
+  }, [categorySpentMap]);
 
   // Year filter & view mode
   const [selectedYear, setSelectedYear] = useState<string>('all');
@@ -114,7 +138,7 @@ export default function SummaryDashboard({
     return expenses.filter((e) => e.date && e.date.startsWith(selectedYear));
   }, [expenses, selectedYear]);
 
-  // Historical Expenditure Pie Data computation
+  // Historical Expenditure Pie Data computation derived strictly from expense ledger
   const historicalPieData = useMemo(() => {
     const catMap: Record<string, number> = {
       Grocery: 0,
@@ -130,24 +154,15 @@ export default function SummaryDashboard({
       catMap[bucket] += (e.amountPHP || 0);
     });
 
-    const sumSpent = Object.values(catMap).reduce((a, b) => a + b, 0);
+    const totalVal = Object.values(catMap).reduce((a, b) => a + b, 0);
 
-    // Fallback display from budgets if no expenses recorded yet
-    const displayMap = sumSpent > 0 ? catMap : budgets.reduce((acc, b) => {
-      const bucket = mapExpenseCategory(b.category);
-      acc[bucket] = (acc[bucket] || 0) + (b.spentPHP > 0 ? b.spentPHP : 0);
-      return acc;
-    }, { Grocery: 3500, Utilities: 2200, Travel: 1800, Dining: 2900, Shopping: 1500, Other: 800 } as Record<string, number>);
-
-    const totalVal = Object.values(displayMap).reduce((a, b) => a + b, 0);
-
-    return Object.entries(displayMap).map(([name, value]) => ({
+    return Object.entries(catMap).map(([name, value]) => ({
       name,
       value,
       color: CATEGORY_COLORS[name] || '#94a3b8',
       percentage: totalVal > 0 ? (value / totalVal) * 100 : 0,
     }));
-  }, [filteredExpenses, budgets]);
+  }, [filteredExpenses]);
 
   const totalHistoricalExpenditure = useMemo(() => {
     return historicalPieData.reduce((sum, item) => sum + item.value, 0);
@@ -543,30 +558,30 @@ export default function SummaryDashboard({
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
-                    data={historicalPieData}
+                    data={totalHistoricalExpenditure > 0 ? historicalPieData : [{ name: 'No Expenses Recorded', value: 1, color: '#334155' }]}
                     cx="50%"
                     cy="50%"
                     innerRadius={70}
                     outerRadius={100}
-                    paddingAngle={4}
+                    paddingAngle={totalHistoricalExpenditure > 0 ? 4 : 0}
                     dataKey="value"
                     animationDuration={800}
                     animationEasing="ease-out"
-                    onMouseEnter={(_, index) => setActivePieIndex(index)}
+                    onMouseEnter={(_, index) => totalHistoricalExpenditure > 0 && setActivePieIndex(index)}
                     onMouseLeave={() => setActivePieIndex(null)}
                   >
-                    {historicalPieData.map((entry, index) => (
+                    {(totalHistoricalExpenditure > 0 ? historicalPieData : [{ name: 'No Expenses Recorded', value: 1, color: '#334155' }]).map((entry, index) => (
                       <Cell
                         key={`exp-cell-${index}`}
                         fill={entry.color}
-                        stroke={activePieIndex === index ? '#ffffff' : 'transparent'}
-                        strokeWidth={activePieIndex === index ? 3 : 0}
+                        stroke={activePieIndex === index && totalHistoricalExpenditure > 0 ? '#ffffff' : 'transparent'}
+                        strokeWidth={activePieIndex === index && totalHistoricalExpenditure > 0 ? 3 : 0}
                         style={{
-                          filter: activePieIndex === index ? 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))' : 'none',
-                          transform: activePieIndex === index ? 'scale(1.04)' : 'scale(1)',
+                          filter: activePieIndex === index && totalHistoricalExpenditure > 0 ? 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25))' : 'none',
+                          transform: activePieIndex === index && totalHistoricalExpenditure > 0 ? 'scale(1.04)' : 'scale(1)',
                           transformOrigin: 'center center',
                           transition: 'all 0.3s ease-in-out',
-                          cursor: 'pointer',
+                          cursor: totalHistoricalExpenditure > 0 ? 'pointer' : 'default',
                         }}
                       />
                     ))}
@@ -585,18 +600,18 @@ export default function SummaryDashboard({
               {/* Dynamic Center Badge */}
               <div className="absolute flex flex-col items-center pointer-events-none text-center px-2">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  {activePieIndex !== null ? historicalPieData[activePieIndex]?.name : 'Total Outflow'}
+                  {activePieIndex !== null && totalHistoricalExpenditure > 0 ? historicalPieData[activePieIndex]?.name : 'Total Outflow'}
                 </span>
                 <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white font-mono">
                   ₱
-                  {activePieIndex !== null
+                  {activePieIndex !== null && totalHistoricalExpenditure > 0
                     ? historicalPieData[activePieIndex]?.value.toLocaleString(undefined, { maximumFractionDigits: 0 })
                     : totalHistoricalExpenditure.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
                 <span className="text-[10px] text-indigo-500 font-extrabold mt-0.5">
-                  {activePieIndex !== null
+                  {activePieIndex !== null && totalHistoricalExpenditure > 0
                     ? `${historicalPieData[activePieIndex]?.percentage.toFixed(1)}% of total`
-                    : selectedYear === 'all' ? 'All Time' : selectedYear}
+                    : totalHistoricalExpenditure === 0 ? '0 Expenses Recorded' : selectedYear === 'all' ? 'All Time' : selectedYear}
                 </span>
               </div>
             </div>
@@ -708,7 +723,7 @@ export default function SummaryDashboard({
                       ₱{totalSpentCurrentMonth.toLocaleString()} <span className="text-[10px] text-slate-500 font-normal">/ ₱{desiredMonthlyBudget.toLocaleString()}</span>
                     </span>
                     <span className={`text-[10px] font-bold font-mono ${
-                      totalSpentCurrentMonth > desiredMonthlyBudget ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'
+                      totalSpentCurrentMonth >= desiredMonthlyBudget ? 'text-rose-600 dark:text-rose-400 font-extrabold' : 'text-emerald-600 dark:text-emerald-400'
                     }`}>
                       {((totalSpentCurrentMonth / (desiredMonthlyBudget || 1)) * 100).toFixed(1)}% Used
                     </span>
@@ -716,8 +731,8 @@ export default function SummaryDashboard({
                   <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        totalSpentCurrentMonth > desiredMonthlyBudget
-                          ? 'bg-rose-500'
+                        totalSpentCurrentMonth >= desiredMonthlyBudget
+                          ? 'bg-rose-600'
                           : (totalSpentCurrentMonth / desiredMonthlyBudget) > 0.8
                           ? 'bg-amber-500'
                           : 'bg-indigo-600'
@@ -725,19 +740,57 @@ export default function SummaryDashboard({
                       style={{ width: `${Math.min((totalSpentCurrentMonth / (desiredMonthlyBudget || 1)) * 100, 100)}%` }}
                     />
                   </div>
+                  {totalSpentCurrentMonth >= desiredMonthlyBudget && (
+                    <p className="text-[10px] text-rose-600 dark:text-rose-400 font-extrabold uppercase tracking-wider flex items-center pt-0.5">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Critical: Overall Monthly Expense Cap Reached!
+                    </p>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* Cap Mismatch Warning Alert */}
+            {isCapMismatch && (
+              <div className="mb-5 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200">
+                <div className="flex items-center space-x-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div>
+                    <span className="font-extrabold">Cap Mismatch Warning:</span> Desired Monthly Cap (₱{desiredMonthlyBudget.toLocaleString()}) does not match total category caps (₱{sumCategoryLimits.toLocaleString()}).
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setDesiredMonthlyBudget(sumCategoryLimits);
+                    localStorage.setItem('desired_monthly_expense_limit', sumCategoryLimits.toString());
+                  }}
+                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10px] rounded-lg uppercase tracking-wider shrink-0 transition-all cursor-pointer shadow-xs"
+                >
+                  Sync Cap to ₱{sumCategoryLimits.toLocaleString()}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4.5">
             {budgets.map((b) => {
-              const isOverLimit = b.spentPHP > b.limitPHP;
-              const ratio = b.limitPHP > 0 ? (b.spentPHP / b.limitPHP) * 100 : 100;
+              const actualSpent = categorySpentMap[b.category] !== undefined ? categorySpentMap[b.category] : b.spentPHP;
+              const isOverLimit = actualSpent > b.limitPHP && b.limitPHP > 0;
+              const isCapReached = actualSpent >= b.limitPHP && b.limitPHP > 0;
+              const ratio = b.limitPHP > 0 ? (actualSpent / b.limitPHP) * 100 : 0;
               return (
-                <div key={b.category} id={`budget-${b.category}`} data-highlight-id={`budget-${b.category}`} className="space-y-1.5 p-1 rounded-lg transition-all">
+                <div key={b.category} id={`budget-${b.category}`} data-highlight-id={`budget-${b.category}`} className={`space-y-1.5 p-2 rounded-xl transition-all ${
+                  isCapReached ? 'bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40' : ''
+                }`}>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">{b.category}</span>
+                    <span className={`font-semibold flex items-center gap-1.5 ${isCapReached ? 'text-rose-600 dark:text-rose-400 font-extrabold' : 'text-slate-600 dark:text-slate-300'}`}>
+                      <span>{b.category}</span>
+                      {isCapReached && (
+                        <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 rounded text-[9px] font-black uppercase tracking-wider">
+                          CAPPED
+                        </span>
+                      )}
+                    </span>
                     <div className="flex items-center space-x-2">
                       {adjustingBudget === b.category ? (
                         <div className="flex items-center space-x-2">
@@ -760,8 +813,8 @@ export default function SummaryDashboard({
                         </div>
                       ) : (
                         <>
-                          <span className={`font-mono font-bold ${isOverLimit ? 'text-rose-500 animate-pulse' : 'text-slate-500 dark:text-slate-400'}`}>
-                            ₱{b.spentPHP.toLocaleString()} / ₱{b.limitPHP.toLocaleString()}
+                          <span className={`font-mono font-bold ${isCapReached ? 'text-rose-600 dark:text-rose-400 font-extrabold animate-pulse' : 'text-slate-500 dark:text-slate-400'}`}>
+                            ₱{actualSpent.toLocaleString()} / ₱{b.limitPHP.toLocaleString()}
                           </span>
                           <button
                             onClick={() => {
@@ -779,17 +832,22 @@ export default function SummaryDashboard({
                   <div className="w-full bg-slate-100 dark:bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-200/50 dark:border-white/5">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        isOverLimit ? 'bg-rose-500' : ratio > 80 ? 'bg-amber-500' : 'bg-blue-600'
+                        isCapReached ? 'bg-rose-600' : ratio > 80 ? 'bg-amber-500' : 'bg-blue-600'
                       }`}
                       style={{ width: `${Math.min(ratio, 100)}%` }}
                     />
                   </div>
-                  {isOverLimit && (
-                    <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider flex items-center">
-                      <AlertTriangle className="w-2.5 h-2.5 mr-1" />
-                      Critical: Budget Limit Overrun!
+                  {isOverLimit ? (
+                    <p className="text-[10px] text-rose-600 dark:text-rose-400 font-extrabold uppercase tracking-wider flex items-center">
+                      <AlertTriangle className="w-3 h-3 mr-1 text-rose-600 dark:text-rose-400" />
+                      Critical: Budget Limit Exceeded!
                     </p>
-                  )}
+                  ) : isCapReached ? (
+                    <p className="text-[10px] text-rose-600 dark:text-rose-400 font-extrabold uppercase tracking-wider flex items-center">
+                      <AlertTriangle className="w-3 h-3 mr-1 text-rose-600 dark:text-rose-400" />
+                      Warning: Category Cap Reached (100% Used)
+                    </p>
+                  ) : null}
                 </div>
               );
             })}
