@@ -23,6 +23,7 @@ interface NavbarProps {
   onOpenPricing?: () => void;
   onOpenSignIn?: () => void;
   isGuest?: boolean;
+  onOpenAdminHQ?: () => void;
 }
 
 export default function Navbar({
@@ -43,6 +44,7 @@ export default function Navbar({
   onOpenPricing,
   onOpenSignIn,
   isGuest = false,
+  onOpenAdminHQ,
 }: NavbarProps) {
   const [showAlerts, setShowAlerts] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -207,6 +209,17 @@ export default function Navbar({
               </button>
             ) : (
               <>
+                {isAdmin && onOpenAdminHQ && (
+                  <button
+                    onClick={onOpenAdminHQ}
+                    className="px-2.5 py-1 bg-purple-600/10 hover:bg-purple-600/20 text-purple-600 dark:text-purple-300 border border-purple-500/30 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
+                    title="Launch Standalone Admin HQ Domain Portal"
+                  >
+                    <Shield className="w-3 h-3 text-purple-500" />
+                    <span className="hidden sm:inline">Admin HQ</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => onOpenSettings('profile')}
                   className="flex items-center space-x-2.5 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-white/10 transition-all cursor-pointer group text-left"

@@ -18,7 +18,8 @@ import {
   Wallet,
   Coins,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowLeft
 } from 'lucide-react';
 import SignInPanel from './SignInPanel';
 
@@ -353,11 +354,15 @@ export default function PublicLandingPage({ onOpenSignIn, onExploreGuest }: Publ
           <div className="relative w-full max-w-md">
             <button
               onClick={() => setIsSignInModalOpen(false)}
-              className="absolute -top-12 right-0 px-3 py-1 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-md"
+              className="absolute -top-12 left-0 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-extrabold transition-all cursor-pointer shadow-md flex items-center gap-1.5"
             >
-              Close (✕)
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Landing Page</span>
             </button>
-            <SignInPanel onSignIn={() => setIsSignInModalOpen(false)} />
+            <SignInPanel 
+              onSignIn={() => setIsSignInModalOpen(false)} 
+              onClose={() => setIsSignInModalOpen(false)}
+            />
           </div>
         </div>
       )}

@@ -36,6 +36,7 @@ import MarketCycleAuditTab, {
 import SettingsModal from './components/SettingsModal';
 import PhilippineClock from './components/PhilippineClock';
 import ProPaywallOverlay from './components/ProPaywallOverlay';
+import AdminPortal from './components/admin/AdminPortal';
 import { getAssetValuation } from './lib/formatters';
 import { AIPopupModal } from './components/AIPopupModal';
 import { ShieldCheck, Wifi, RefreshCw, MessageSquare, X, Mic, Send, Sparkles, Bot, User as UserIcon, Check, Lock, Crown } from 'lucide-react';
@@ -193,6 +194,19 @@ export default function App() {
   // Session Authentication state
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+
+  // Dedicated Admin Domain & Mode Detection
+  const [isAdminPortalMode, setIsAdminPortalMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return (
+        window.location.hostname.startsWith('admin') ||
+        window.location.search.includes('mode=admin') ||
+        window.location.pathname.startsWith('/admin') ||
+        (import.meta.env.VITE_APP_MODE === 'admin')
+      );
+    }
+    return false;
+  });
 
   // Financial Database States
   const [assets, setAssets] = useState<AssetPosition[]>([]);
@@ -747,9 +761,20 @@ export default function App() {
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 space-y-4">
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest animate-pulse">
-          Securing Wealth Vault Session...
+          Securing Session...
         </p>
       </div>
+    );
+  }
+
+  if (isAdminPortalMode) {
+    return (
+      <AdminPortal
+        currentUser={firebaseUser}
+        isAdmin={isAdmin}
+        onNavigateToUserApp={() => setIsAdminPortalMode(false)}
+        onTriggerToast={triggerToast}
+      />
     );
   }
   if (!firebaseUser && !isGuestMode) {
@@ -764,11 +789,14 @@ export default function App() {
             <div className="relative w-full max-w-md">
               <button
                 onClick={() => setShowSignInModal(false)}
-                className="absolute -top-12 right-0 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                className="absolute -top-12 left-0 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
               >
-                Close (✕)
+                <span>← Back to Landing Page</span>
               </button>
-              <SignInPanel onSignIn={() => setShowSignInModal(false)} />
+              <SignInPanel 
+                onSignIn={() => setShowSignInModal(false)} 
+                onClose={() => setShowSignInModal(false)}
+              />
             </div>
           </div>
         )}
@@ -1593,6 +1621,7 @@ export default function App() {
         onOpenPricing={() => setActiveTab('pricing')}
         onOpenSignIn={() => setShowSignInModal(true)}
         isGuest={!firebaseUser}
+        onOpenAdminHQ={() => setIsAdminPortalMode(true)}
       />
 
       {/* Sign In Modal Overlay for Guest Mode */}
@@ -1601,11 +1630,14 @@ export default function App() {
           <div className="relative w-full max-w-md">
             <button
               onClick={() => setShowSignInModal(false)}
-              className="absolute -top-12 right-0 px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all cursor-pointer"
+              className="absolute -top-12 left-0 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
             >
-              Close (✕)
+              <span>← Back to Cockpit</span>
             </button>
-            <SignInPanel onSignIn={() => setShowSignInModal(false)} />
+            <SignInPanel 
+              onSignIn={() => setShowSignInModal(false)} 
+              onClose={() => setShowSignInModal(false)}
+            />
           </div>
         </div>
       )}
