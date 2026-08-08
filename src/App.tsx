@@ -316,11 +316,25 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        setFirebaseUser(user);
+        setLoadingAuth(false);
+      },
+      (error) => {
+        console.error('Firebase Auth listener error:', error);
+        setLoadingAuth(false);
+      }
+    );
+    // Timeout fallback so auth loading never blocks UI indefinitely
+    const timer = setTimeout(() => {
       setLoadingAuth(false);
-    });
-    return unsubscribe;
+    }, 2500);
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   const [isGCashModalOpen, setIsGCashModalOpen] = useState(false);
@@ -725,7 +739,16 @@ export default function App() {
     return () => clearInterval(interval);
   }, [email]);
 
-  if (loadingAuth) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 space-y-4">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest animate-pulse">
+          Securing Wealth Vault Session...
+        </p>
+      </div>
+    );
+  }
   if (!firebaseUser) return <SignInPanel onSignIn={() => {}} />;
 
   const startVoiceToText = () => {
