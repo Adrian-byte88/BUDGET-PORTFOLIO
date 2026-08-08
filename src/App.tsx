@@ -13,6 +13,7 @@ import {
 } from './types';
 import Navbar from './components/Navbar';
 import SummaryDashboard from './components/SummaryDashboard';
+import HomePage from './components/HomePage';
 import PricingPlanTab from './components/PricingPlanTab';
 import GCashPaymentModal from './components/GCashPaymentModal';
 import AssetSleeveTab from './components/AssetSleeveTab';
@@ -48,7 +49,7 @@ const DEFAULT_BUDGETS: BudgetLimit[] = [
   { category: 'Other', limitPHP: 3000, spentPHP: 0 },
 ];
 
-const FREE_ALLOWED_TABS = ['dashboard', 'pricing', 'ledger', 'social', 'transactions'] as const;
+const FREE_ALLOWED_TABS = ['home', 'dashboard', 'pricing', 'ledger', 'social', 'transactions'] as const;
 
 const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
@@ -269,7 +270,7 @@ export default function App() {
   const isRemoteUpdate = React.useRef(false);
   const isTickerUpdateRef = React.useRef(false);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'portfolio' | 'assets' | 'ledger' | 'social' | 'audit' | 'transactions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'home' | 'dashboard' | 'pricing' | 'portfolio' | 'assets' | 'ledger' | 'social' | 'audit' | 'transactions'>('home');
   const [darkMode, setDarkMode] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<'profile' | 'preferences' | 'export'>('profile');
@@ -330,12 +331,12 @@ export default function App() {
   });
 
   const accessibleTabs = (!isAdmin && subscriptionTier === 'free')
-    ? (['dashboard', 'ledger', 'social', 'transactions'] as const)
-    : (['dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
+    ? (['home', 'dashboard', 'ledger', 'social', 'transactions'] as const)
+    : (['home', 'dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
   useEffect(() => {
     if (!isAdmin && subscriptionTier === 'free' && !FREE_ALLOWED_TABS.includes(activeTab as any)) {
-      setActiveTab('dashboard');
+      setActiveTab('home');
     }
   }, [subscriptionTier, isAdmin, activeTab]);
 
@@ -1558,7 +1559,8 @@ export default function App() {
               const isActive = activeTab === tab;
               const isLocked = !isAdmin && subscriptionTier === 'free' && !FREE_ALLOWED_TABS.includes(tab as any);
               const titles: Record<string, string> = {
-                dashboard: 'Summary Dashboard',
+                home: 'Home Overview',
+                dashboard: 'Summary Analytics',
                 pricing: 'Pricing Plan',
                 portfolio: 'My Financial Portfolio',
                 assets: 'Risk & Safe Assets',
@@ -1599,6 +1601,24 @@ export default function App() {
         </div>
 
         {/* Dynamic Tab Pane Views */}
+        {activeTab === 'home' && (
+          <HomePage
+            email={email || undefined}
+            assets={assets}
+            expenses={expenses}
+            budgets={budgets}
+            goals={goals}
+            transactions={transactions}
+            usdPhpRate={exchangeRates.USD}
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
+            onOpenChat={() => setIsChatOpen(true)}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            subscriptionTier={subscriptionTier}
+            isAdmin={isAdmin}
+            onOpenPricing={() => setActiveTab('pricing')}
+          />
+        )}
+
         {activeTab === 'dashboard' && (
           <SummaryDashboard
             assets={assets}

@@ -1,0 +1,531 @@
+import React from 'react';
+import {
+  Wallet,
+  TrendingUp,
+  ShieldCheck,
+  CreditCard,
+  Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock,
+  PieChart,
+  Sliders,
+  DollarSign,
+  Activity,
+  Award,
+  Users,
+  History,
+  Lock,
+  ChevronRight,
+  CheckCircle2,
+  Zap,
+  Globe,
+  ArrowRight,
+  Layers,
+  Banknote
+} from 'lucide-react';
+import { AssetPosition, ExpenseEntry, BudgetLimit, FamilyGoal } from '../types';
+import { HistoricalTx } from './TransactionHistoryTab';
+import { getAssetValuation } from '../lib/formatters';
+
+interface HomePageProps {
+  email?: string;
+  assets: AssetPosition[];
+  expenses: ExpenseEntry[];
+  budgets: BudgetLimit[];
+  goals: FamilyGoal[];
+  transactions: HistoricalTx[];
+  usdPhpRate: number;
+  onNavigateTab: (tab: string) => void;
+  onOpenChat: () => void;
+  onOpenSettings: () => void;
+  subscriptionTier?: 'free' | 'pro';
+  isAdmin?: boolean;
+  onOpenPricing?: () => void;
+}
+
+export default function HomePage({
+  email,
+  assets,
+  expenses,
+  budgets,
+  goals,
+  transactions,
+  usdPhpRate,
+  onNavigateTab,
+  onOpenChat,
+  onOpenSettings,
+  subscriptionTier = 'free',
+  isAdmin = false,
+  onOpenPricing,
+}: HomePageProps) {
+  // User greeting based on hour
+  const currentHour = new Date().getHours();
+  const timeGreeting =
+    currentHour < 12
+      ? 'Good morning'
+      : currentHour < 18
+      ? 'Good afternoon'
+      : 'Good evening';
+
+  const userName = email ? email.split('@')[0] : 'Member';
+
+  // Calculate Key Portfolio Metrics
+  const safeAssets = assets.filter((a) => a.class === 'safe');
+  const riskAssets = assets.filter((a) => a.class === 'risk');
+  const physicalAssets = assets.filter((a) => a.class === 'physical');
+  const liabilityAssets = assets.filter((a) => a.class === 'liability');
+
+  const totalSafe = safeAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalRisk = riskAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalPhysical = physicalAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+  const totalLiabilities = liabilityAssets.reduce((sum, a) => sum + getAssetValuation(a).totalValue, 0);
+
+  const totalFinancialAssets = totalSafe + totalRisk;
+  const grandTotalAssets = totalFinancialAssets + totalPhysical;
+  const netWorth = grandTotalAssets - totalLiabilities;
+
+  // High-Yield Savings (5%) & Cash Reserve Amount
+  const hysAsset = assets.find((a) => a.key === 'hys' || a.assetType === 'hys' || a.name.toLowerCase().includes('high-yield'));
+  const cashReserveAsset = assets.find((a) => a.key === 'available_cash');
+  const cashReserveVal = hysAsset
+    ? getAssetValuation(hysAsset).totalValue
+    : cashReserveAsset
+    ? getAssetValuation(cashReserveAsset).totalValue
+    : 0;
+
+  // Estimated Monthly Passive Yield from Safe Assets
+  const monthlyYieldPHP = safeAssets.reduce((sum, a) => {
+    const val = getAssetValuation(a);
+    const annualYield = val.totalValue * (a.yieldPercent / 100) * (1 - (a.withholdingTaxPercent || 0) / 100);
+    return sum + annualYield / 12;
+  }, 0);
+
+  // Budget calculations
+  const totalMonthlyBudget = budgets.reduce((sum, b) => sum + b.limitPHP, 0);
+  const totalExpensesSpent = expenses.reduce((sum, e) => sum + e.amountPHP, 0);
+  const budgetBurnPercent = totalMonthlyBudget > 0 ? Math.min(Math.round((totalExpensesSpent / totalMonthlyBudget) * 100), 100) : 0;
+
+  // Recent 5 transactions
+  const recentTransactions = transactions.slice(0, 5);
+
+  // Safe Ratio
+  const safeRatioPercent = grandTotalAssets > 0 ? Math.round((totalSafe / grandTotalAssets) * 100) : 0;
+
+  return (
+    <div className="space-y-6 sm:space-y-8 animate-fadeIn">
+      {/* Top Welcome Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-slate-800 shadow-xl p-6 sm:p-8">
+        {/* Subtle Background Pattern */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                Live Portfolio Sync
+              </span>
+              {isAdmin || subscriptionTier === 'pro' ? (
+                <span className="px-2.5 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+                  Enterprise PRO Active
+                </span>
+              ) : (
+                <button
+                  onClick={onOpenPricing}
+                  className="px-2.5 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30 rounded-full text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <span>Free Account • Upgrade to PRO</span>
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">
+                {timeGreeting}, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 capitalize">{userName}</span>!
+              </h1>
+              <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl font-medium leading-relaxed">
+                Here is your live financial command center. Sourced directly from your Maya High-Yield Savings (5% APY), investments, expense ledger, and asset registry.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => onNavigateTab('ledger')}
+              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg hover:shadow-emerald-500/20 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Record Expense</span>
+            </button>
+
+            <button
+              onClick={onOpenChat}
+              className="px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Ask AI Wealth Coach</span>
+            </button>
+
+            <button
+              onClick={() => onNavigateTab('dashboard')}
+              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <PieChart className="w-4 h-4 text-cyan-400" />
+              <span>Analytics</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Key Metric Summary Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Net Worth Card */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Net Worth</span>
+            <div className="p-2 bg-emerald-50 dark:bg-emerald-950/50 rounded-xl text-emerald-600 dark:text-emerald-400">
+              <Wallet className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              ₱{netWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs">
+              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-0.5">
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                +2.4% portfolio yield
+              </span>
+              <span className="text-slate-400 font-medium">USD ${(netWorth / usdPhpRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* High Yield Cash Reserve Card */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Cash Reserve (5% HYS)</span>
+            <div className="p-2 bg-teal-50 dark:bg-teal-950/50 rounded-xl text-teal-600 dark:text-teal-400">
+              <Banknote className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              ₱{cashReserveVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs">
+              <span className="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-1">
+                <Zap className="w-3 h-3" />
+                ~₱{monthlyYieldPHP.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo yield
+              </span>
+              <span className="text-xs bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 px-1.5 py-0.5 rounded font-bold">5.0% APY</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Budget Burn Card */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Monthly Spending</span>
+            <div className="p-2 bg-blue-50 dark:bg-blue-950/50 rounded-xl text-blue-600 dark:text-blue-400">
+              <CreditCard className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              ₱{totalExpensesSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="mt-2 space-y-1">
+              <div className="flex justify-between text-[11px] font-bold text-slate-500">
+                <span>Cap: ₱{totalMonthlyBudget.toLocaleString()}</span>
+                <span className={budgetBurnPercent > 90 ? 'text-rose-500' : 'text-emerald-500'}>{budgetBurnPercent}% Used</span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    budgetBurnPercent > 90 ? 'bg-rose-500' : budgetBurnPercent > 70 ? 'bg-amber-500' : 'bg-blue-500'
+                  }`}
+                  style={{ width: `${budgetBurnPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Safe Shield Ratio Card */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Safe Shield Ratio</span>
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-950/50 rounded-xl text-indigo-600 dark:text-indigo-400">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {safeRatioPercent}% <span className="text-xs font-normal text-slate-400">/ 85% Target</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                ₱{totalSafe.toLocaleString(undefined, { maximumFractionDigits: 0 })} Safe Capital
+              </span>
+              <span className="text-slate-400">Risk: {100 - safeRatioPercent}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Split Content: Left Watchlist & Recent Activity, Right AI Health Coach */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Columns: Live Asset Watchlist & Recent Transactions */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Live Top Asset Holdings & Market Quotes */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center space-x-2">
+                <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Top Asset Holdings & Market Quotes</h2>
+              </div>
+              <button
+                onClick={() => onNavigateTab('assets')}
+                className="text-xs font-extrabold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Full Asset Sleeve</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100 dark:divide-white/5">
+              {assets.slice(0, 5).map((asset) => {
+                const val = getAssetValuation(asset);
+                const isPositive = asset.change24h >= 0;
+
+                return (
+                  <div key={asset.key} className="py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/40 px-2 rounded-xl transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs uppercase ${
+                        asset.class === 'safe'
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : asset.class === 'risk'
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                          : asset.class === 'physical'
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                      }`}>
+                        {asset.class.substring(0, 2)}
+                      </div>
+                      <div>
+                        <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">{asset.name}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">{asset.platform} • {asset.assetType.toUpperCase()}</div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
+                        ₱{val.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="flex items-center justify-end gap-1 text-[11px]">
+                        {asset.change24h !== 0 && (
+                          <span className={`font-bold flex items-center ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                            {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                            {asset.change24h > 0 ? '+' : ''}{asset.change24h}%
+                          </span>
+                        )}
+                        {asset.yieldPercent > 0 && (
+                          <span className="text-teal-600 dark:text-teal-400 font-semibold">({asset.yieldPercent}% yield)</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recent Activity Feed */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center space-x-2">
+                <History className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Recent Activity & Ledger Feed</h2>
+              </div>
+              <button
+                onClick={() => onNavigateTab('transactions')}
+                className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>View Full Audit Log</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {recentTransactions.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                No recent transactions recorded. Use the Expense Ledger or Asset Sleeve to record activities.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {recentTransactions.map((tx) => (
+                  <div key={tx.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-white/5 rounded-xl flex items-center justify-between text-xs">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${
+                        tx.type.toLowerCase().includes('buy') || tx.type.toLowerCase().includes('deposit')
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                          : tx.type.toLowerCase().includes('sell')
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                          : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                      }`}>
+                        <DollarSign className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 dark:text-white">{tx.asset}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">{tx.date} • {tx.type.toUpperCase()}</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-slate-900 dark:text-white">
+                        {tx.amount}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-medium">{tx.details || 'Verified'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right 1 Column: Financial Health Score & Quick Navigation Hub */}
+        <div className="space-y-6">
+          {/* Wealth Health AI Coach Card */}
+          <div className="bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 border border-indigo-800/60 rounded-2xl p-5 text-white shadow-lg space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+                <h3 className="font-extrabold text-sm uppercase tracking-wider text-amber-200">AI Health Assessment</h3>
+              </div>
+              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black rounded-full">
+                92 / 100 EXCELLENT
+              </span>
+            </div>
+
+            <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2 text-xs">
+              <div className="flex items-center space-x-2 text-emerald-400 font-bold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>High Yield Maya 5% active</span>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Your cash reserve generates monthly passive interest safeguarding purchasing power against local CPI inflation.
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-white/5 border border-white/10 rounded-xl space-y-2 text-xs">
+              <div className="flex items-center space-x-2 text-cyan-400 font-bold">
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span>Safe Shield Allocation</span>
+              </div>
+              <p className="text-slate-300 text-[11px] leading-relaxed">
+                Safe assets represent {safeRatioPercent}% of portfolio weight. Target ratio (85%) is maintained.
+              </p>
+            </div>
+
+            <button
+              onClick={onOpenChat}
+              className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Launch Deep AI Portfolio Coach</span>
+            </button>
+          </div>
+
+          {/* Quick Access Navigation Modules */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl p-5 shadow-xs space-y-3">
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Platform Modules</h3>
+
+            {[
+              {
+                id: 'dashboard',
+                title: 'Summary Analytics',
+                desc: 'Visual portfolio graphs & monthly trends',
+                icon: PieChart,
+                color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/50',
+                allowed: true,
+              },
+              {
+                id: 'assets',
+                title: 'Risk & Safe Asset Registry',
+                desc: 'Manage Maya 5%, BTC, stocks & liabilities',
+                icon: ShieldCheck,
+                color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-950/50',
+                allowed: isAdmin || subscriptionTier === 'pro',
+              },
+              {
+                id: 'ledger',
+                title: 'Expense Ledger',
+                desc: 'Category budgets & payday auto-sync',
+                icon: CreditCard,
+                color: 'text-purple-500 bg-purple-50 dark:bg-purple-950/50',
+                allowed: true,
+              },
+              {
+                id: 'audit',
+                title: 'Market Cycle Audit',
+                desc: 'PH Inflation CPI defense & deployment',
+                icon: Sliders,
+                color: 'text-amber-500 bg-amber-50 dark:bg-amber-950/50',
+                allowed: isAdmin || subscriptionTier === 'pro',
+              },
+              {
+                id: 'social',
+                title: 'Social Family Sync',
+                desc: 'Collaborative family goals & budget tracking',
+                icon: Users,
+                color: 'text-teal-500 bg-teal-50 dark:bg-teal-950/50',
+                allowed: true,
+              },
+              {
+                id: 'transactions',
+                title: 'Transaction Audit Log',
+                desc: 'Historical ledger of transfers & trades',
+                icon: History,
+                color: 'text-slate-500 bg-slate-100 dark:bg-slate-800',
+                allowed: true,
+              },
+            ].map((module) => {
+              const IconComp = module.icon;
+
+              return (
+                <button
+                  key={module.id}
+                  onClick={() => onNavigateTab(module.id)}
+                  className="w-full p-3 bg-slate-50/70 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 border border-slate-100 dark:border-white/5 rounded-xl flex items-center justify-between text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-xl ${module.color}`}>
+                      <IconComp className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                        <span>{module.title}</span>
+                        {!module.allowed && (
+                          <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[8px] font-black px-1 rounded flex items-center gap-0.5">
+                            <Lock className="w-2 h-2" />
+                            <span>PRO</span>
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">{module.desc}</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
