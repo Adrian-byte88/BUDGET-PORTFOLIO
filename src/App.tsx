@@ -51,7 +51,7 @@ const DEFAULT_BUDGETS: BudgetLimit[] = [
   { category: 'Other', limitPHP: 3000, spentPHP: 0 },
 ];
 
-const FREE_ALLOWED_TABS = ['home', 'dashboard', 'pricing', 'ledger', 'social', 'transactions'] as const;
+const FREE_ALLOWED_TABS = ['home', 'pricing', 'ledger', 'social', 'transactions'] as const;
 
 const DEFAULT_INITIAL_ASSETS: AssetPosition[] = [
   {
@@ -362,7 +362,7 @@ export default function App() {
   });
 
   const accessibleTabs = (!isAdmin && subscriptionTier === 'free')
-    ? (['home', 'dashboard', 'ledger', 'social', 'transactions'] as const)
+    ? (['home', 'ledger', 'social', 'transactions'] as const)
     : (['home', 'dashboard', 'portfolio', 'assets', 'ledger', 'social', 'audit', 'transactions'] as const);
 
   useEffect(() => {
@@ -379,6 +379,13 @@ export default function App() {
       setSubscriptionTier((saved as 'free' | 'pro') || 'free');
     }
   }, [email]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'admin' && !firebaseUser && !isGuestMode) {
+      setShowSignInModal(true);
+    }
+  }, [firebaseUser, isGuestMode]);
 
   const handleUpdateSubscriptionTier = (newTier: 'free' | 'pro') => {
     if (isAdmin) return;
